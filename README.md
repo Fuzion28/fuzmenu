@@ -1,6 +1,6 @@
-# 🧟 FuzMenu v2.4.2: ALL FEATURES 🧟
+# 🧟 FuzMenu v2.4.5: ALL FEATURES 🧟
 
-Solo Zombies mod menu for BO7 / Kronos 1.41.
+Zombies mod menu for BO7 / Kronos, solo and **co-op**.
 Open: **Aim + Melee** · Move: Aim / Shoot or arrows · Select: **F** · Back: **V**
 
 ## 🛡️ OP Mode
@@ -52,20 +52,33 @@ Max points & scrap, Add points / scrap, Points multiplier x2 to x10, Scrap multi
 ## 🧟 Zombies
 - Kill all, Leave one zombie, Despawn zombies, Stop spawns, Freeze zombies
 - Zombies per round (1 to 24), Spawn rate x0.5 to x4, Force spawn here
+- **Spawn points**: place as many as you want, zombies spawn at a random one
 - Zombies in a line (training), Zombie counter
 - Friendly zombies, Tessie
 
 ## ⏱️ Rounds
 Round timer, Round +1 / +5 / +10 / +100, Round -1 / -5 / -10 / -100, Jump to round 1, 10, 25, 50, 100, 255, 500 or 999
 
+## 🏃 Speedrun
+- Live timer and splits, personal best saved, the timer starts when you move
+- **Ashes**: Gauntlet, Lockdown end, Keys, Challenges, Veytarion
+- **Astra**: LGM-1, Brain, Mars, Ritual, Caltheris
+- Other maps: PaP, Wonder weapon, each main quest step, Boss
+- **Practice**: replay any split with the quest set up, round, perks, armor, points and PaP ready
+- Save your own start position for each split
+
 ## 🎁 Bonus
 All power-ups, Double points, Max ammo, Max armor, Full power, Free perk, Fire sale, Permanent fire sale, Nuke, Bonus points, Power-up duration x2 / x5
 
 ## 🌍 World
-Turn on power, Open all doors, **Start Boss Fight** (all maps), Restart map, Free / faster mystery box, Disable all mods
+Turn on power, Open all doors, **Start Boss Fight** (all maps), Restart map, Disable all mods
+Mystery box: Free, Faster, Lock the box in place
 
-## 🧱 Forge
-Box, Door, Stairs, Sky platform, Mini base, Wall, Tower, Stack on last, Delete all
+## 🔨 Forge
+- **Props**: Box, Door, Wall, Tower, Stairs, Mini base, Sky platform, Stack on last
+- **Machines**: Working mystery box, Pack-a-Punch, Perk machine, Der Wunderfizz, Gobblegum machine, Arsenal, Crafting table, Ammo crate
+- **Adjust last**: rotate, push away, raise, lower
+- **Save / Load** your build per map, Delete last, Delete all
 
 ## 🕹️ Old School Zombies
 Enable all at once, or pick:
@@ -74,6 +87,10 @@ Old-school damage, No armor, Back shield, OG specials & elites, Classic perk pri
 ## ⚙️ Settings
 Menu color, Menu on the right, Text mode (no HUD)
 
+## 👥 Co-op
+Every player gets the menu. Host: full panel. Other players: text line in the middle of the screen. Only the host needs the mod.
+
 ## 📦 Install
-Kronos launcher → **Workshop** → **FuzMenu** → Install. Launch Zombies and press **Aim + Melee**.
+Kronos launcher → **Workshop** → **FuzMenu** → Install (or extract the rar into your Kronos folder).
+Launch Zombies and press **Aim + Melee**.
 Files: https://github.com/Fuzion28/fuzmenu
