@@ -27,18 +27,20 @@ local THEMES={0x0099ff,0xff3333,0x33ff59,0xb34dff,0xff9900,0xffd933}
 local PANEL,TEXT,DIM,INK,PILL=0x111214,0xa8acb3,0x6b6f76,0x111214,0xf2f3f5
 -- main page labels (FR and EN) -> Assets/Images/fuzmenu_i_<icon>.png
 local ICONS={["Joueur"]="player",["Player"]="player",["OP Mode"]="op",["Teleports"]="teleport",
-    ["Donner une arme"]="gun",["Give a weapon"]="gun",["Armes miracles"]="wonder",["Wonder weapons"]="wonder",
+    ["Armes"]="gun",["Weapons"]="gun",["Co-op"]="player",["Desactiver tous les mods"]="close",["Disable all mods"]="close",["Donner une arme"]="gun",["Give a weapon"]="gun",["Armes miracles"]="wonder",["Wonder weapons"]="wonder",
     ["Options de tir"]="fire",["Shooting options"]="fire",["Degats"]="damage",["Damage"]="damage",
     ["Ameliorer"]="upgrade",["Upgrade"]="upgrade",["Atouts"]="perks",["Perks"]="perks",["Gobblegums"]="gums",
     ["Points & scrap"]="money",["Zombies"]="zombies",["Manches"]="rounds",["Rounds"]="rounds",["Bonus"]="powerups",
-    ["Monde"]="world",["World"]="world",["Forge"]="forge",["Old School Zombies"]="oldschool",
+    ["Speedrun"]="rounds",["Monde"]="world",["World"]="world",["Forge"]="forge",["Old School Zombies"]="oldschool",
     ["Parametres"]="settings",["Settings"]="settings",["Fermer"]="close",["Close"]="close"}
 
+local function plainIndex(object,key) return object[key] end
+local function hashedIndex(object,key) return object[H(key)] end
 local function get(object,key)
     if object==nil then return nil end
-    local plain,value=pcall(function()return object[key]end)
+    local plain,value=pcall(plainIndex,object,key)
     if plain and value~=nil then return value end
-    local ok,hashed=pcall(function()return object[H(key)]end)
+    local ok,hashed=pcall(hashedIndex,object,key)
     if ok then return hashed end
     return nil
 end
@@ -163,7 +165,8 @@ local function build(parent)
     S.track=rectangle(frame,20,0,W-40,3,0x26282c,1)
     S.fill=rectangle(frame,20,0,3,3,THEMES[1],1)
     S.footer=label(frame,20,0,W-40,18,13,DIM)
-    call(S.footer,"setText","RMB: Up    LMB: Down    F: OK    V: Back")
+    S.footer2=label(frame,20,0,W-40,18,13,DIM)
+    S.pad=nil
 end
 
 -- weapon refs (sat_lm_typhon) become the game's localized name, as ProjectNexus does
@@ -181,6 +184,12 @@ local function weaponName(ref)
     names[ref]=name;return name
 end
 
+-- shortcut: controller labels assume the default layout (Xbox names), upgrade if the game exposes the player's binds to Lua
+local FOOTERS={
+    ["0"]={"Arrows / RMB-LMB: Move    Enter / F: OK","Backspace / V: Back    Insert: Open"},
+    ["1"]={"D-pad / LT-RT: Move    X (PS: Square): OK","R3: Back    LT + R3: Open"},
+}
+
 local function parse(text)
     if type(text)~="string" or #text>4096 then return nil end
     local f={};for field in (text.."|"):gmatch("(.-)|") do f[#f+1]=field end
@@ -193,7 +202,7 @@ local function render(f,n)
     local theme=THEMES[(tonumber(f[2]) or 0)+1] or THEMES[1]
     local cursor=math.max(0,math.min(n-1,tonumber(f[5]) or 0))
     local fy=ROWS_TOP+n*ROW+10
-    local h=fy+44
+    local h=fy+62
     -- top edge stays put when the page length changes
     if f[3]=="1" then call(S.frame,"SetAnchorsAndPosition",1,0,.5,.5,-W-60,-60,-330,-330+h)
     else call(S.frame,"SetAnchorsAndPosition",0,1,.5,.5,60,60+W,-330,-330+h) end
@@ -232,12 +241,15 @@ local function render(f,n)
     place(S.track,20,fy,W-40,3)
     place(S.fill,20,fy,math.max(3,math.floor((W-40)*(tonumber(at) or 1)/math.max(1,tonumber(total) or 1))),3)
     place(S.footer,20,fy+12,W-40,18)
+    place(S.footer2,20,fy+30,W-40,18)
     if not S.visible then call(S.frame,"SetAlpha",1,120) end
     S.visible=true
 end
 
 local function tick()
     S.ticks=S.ticks+1
+    -- the GSC writes dvars every 50 ms at most: a third of the rate while closed; %3==1 keeps the %30==1 zmm_lua beat below
+    if not S.visible and S.ticks%3~=1 then return end
     if not inMatch() then if S.frame then clear() end;S.hud=nil;S.hudText=nil;S.big=nil;S.bigText=nil;return end
     -- tells the GSC this script runs, so it skips its own HUD
     if S.ticks%30==1 then
@@ -313,6 +325,14 @@ local function tick()
     if text=="" or invoke(get(rawget(_G,"LUI"),"FlowManager"),"IsInStack",H("MPPauseMenu"))==true then
         hide();return
     end
+    local pad=read("zmm_pad")=="1" and "1" or "0"
+    if S.footer and pad~=S.pad then
+        S.pad=pad
+        call(S.footer,"setText",FOOTERS[pad][1])
+        call(S.footer2,"setText",FOOTERS[pad][2])
+    end
+    -- nothing new to draw: only look for a rebuilt UI root 4 times a second
+    if text==S.last and S.ticks%15~=0 then return end
     local parent=displayParent()
     if not parent or (text==S.last and S.parent==parent) then return end
     local f,n=parse(text)
@@ -359,7 +379,8 @@ S.ensureTimer=ensureTimer;S.clear=clear
 -- arrow keys and D-pad move the open menu (GSC buttonpressed("uparrow") never fires): each press
 -- bumps the zmm_up / zmm_down counter the GSC polls. Names and their hashes, as in Project Nexus.
 local NAV={uparrow="up",arrowup="up",up="up",button_dpad_up="up",dpad_up="up",pad_up="up",dpadup="up",
-    downarrow="down",arrowdown="down",down="down",button_dpad_down="down",dpad_down="down",pad_down="down",dpaddown="down"}
+    downarrow="down",arrowdown="down",down="down",button_dpad_down="down",dpad_down="down",pad_down="down",dpaddown="down",
+    enter="enter",kp_enter="enter",["return"]="enter",backspace="back",ins="open",insert="open"}
 -- sticks can report a plain "up"/"down" too: they keep their normal use
 local STICKS={}
 for _,prefix in ipairs({"apad_","apad2_","stick_","lstick_","rstick_","button_lstick_","button_rstick_"}) do
@@ -385,13 +406,15 @@ local function install()
     local wrapped=function(...)
         if S.enabled then pcall(ensureTimer) end
         local _,c,_,down,button,_,_,_,_,_,key,uiBind=...
-        local nav=S.enabled and S.visible and (tonumber(c) or 0)==0 and navKey(button,key,uiBind)
-        if nav then
+        local nav=S.enabled and (tonumber(c) or 0)==0 and navKey(button,key,uiBind)
+        -- Insert only acts while the menu is closed, every other key only while it is open
+        if nav and (S.visible==true)==(nav~="open") then
             if down==true then
                 local name="zmm_"..nav
                 pcall(invoke,rawget(_G,"Dvar"),"SetDvarString",HD(name),tostring((tonumber(read(name)) or 0)+1))
             end
-            return true
+            -- Insert still reaches the game: it is also the Kronos menu key
+            if nav~="open" then return true end
         end
         return original(...)
     end

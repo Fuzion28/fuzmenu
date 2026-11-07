@@ -6,6 +6,7 @@
 #using scripts\mp\zm\systems\agent_manager;
 // hashed game scripts, same list as ProjectNexus: perks, points, overrides, bgb, round flags
 #using script_3b64eb40368c1450;
+#using script_6995a3eb7d571a9f;
 #using script_4e3b2b1d9542e66b;
 #using script_4fca32f463c5e4fa;
 #using script_25a8fa2ac8997425;
@@ -71,9 +72,15 @@ autoexec init()
     setdvar( @"zmm_recoil", "" );
     setdvar( @"zmm_hud", "" );
     setdvar( @"zmm_big", "" );
+    setdvar( @"hash_3c05d1d16d772c9e", -1 );
+    setdvar( @"hash_8054c9327575fd95", 0 );
     // the Lua can only write dvars that already exist
     setdvar( @"zmm_up", "0" );
     setdvar( @"zmm_down", "0" );
+    setdvar( @"zmm_enter", "0" );
+    setdvar( @"zmm_back", "0" );
+    setdvar( @"zmm_open", "0" );
+    setdvar( @"zmm_pad", "0" );
     // Old School parts that are on, read by the game-wide hooks
     level.zmm_cl = [];
     menu_build_pages();
@@ -91,16 +98,13 @@ function menu_build_pages()
 {
     level.zmm_pages = [];
     level.zmm_labels = [];
+    level.zmm_toggle_keys = [];
 
     menu_add_page( "Main", "MAIN MENU", [
         [ "Player", 2, "Player" ],
         [ "OP Mode", 4, "god_all" ],
         [ "Teleports", 2, "Teleports" ],
-        [ "Give a weapon", 2, "WeapGive" ],
-        [ "Wonder weapons", 2, "Wonder" ],
-        [ "Shooting options", 2, "WeapFire" ],
-        [ "Damage", 2, "WeapDmg" ],
-        [ "Upgrade", 2, "WeapUp" ],
+        [ "Weapons", 2, "Weapons" ],
         [ "Perks", 2, "Perks" ],
         [ "Gobblegums", 2, "Gums" ],
         [ "Points & scrap", 2, "Money" ],
@@ -111,8 +115,26 @@ function menu_build_pages()
         [ "World", 2, "World" ],
         [ "Forge", 2, "Forge" ],
         [ "Old School Zombies", 2, "OldSchool" ],
+        [ "Co-op", 9, "coop_list", 0 ],
+        [ "Disable all mods", 5, "reset" ],
         [ "Settings", 2, "Settings" ],
         [ "Close", 0, "" ]
+    ] );
+
+    menu_add_page( "Weapons", "WEAPONS", [
+        [ "Give a weapon", 2, "WeapGive" ],
+        [ "Wonder weapons", 2, "Wonder" ],
+        [ "Shooting options", 2, "WeapFire" ],
+        [ "Damage", 2, "WeapDmg" ],
+        [ "Upgrade", 2, "WeapUp" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CoopAction", "PLAYER", [
+        [ "Revive", 9, "coop_do", "revive" ],
+        [ "Go to player", 9, "coop_do", "goto" ],
+        [ "Bring to me", 9, "coop_do", "bring" ],
+        [ "Back", 1, "" ]
     ] );
 
     menu_add_page( "Player", "PLAYER", [
@@ -199,6 +221,8 @@ function menu_build_pages()
         [ "Weapon rarity", 2, "Rarity" ],
         [ "Auto Ultra + PAP 4", 4, "firepower" ],
         [ "Random camo", 5, "random_camo" ],
+        [ "Next camo", 5, "camo_next" ],
+        [ "Previous camo", 5, "camo_prev" ],
         [ "Save a build", 2, "BuildSave" ],
         [ "Load a build", 2, "BuildLoad" ],
         [ "Back", 1, "" ]
@@ -299,13 +323,13 @@ function menu_build_pages()
     ] );
 
     menu_add_page( "Wonder", "WONDER WEAPONS", [
-        [ "Necrofluid", 8, "sat_ww_firefly_zm" ],
-        [ "Nekomancer", 8, "sat_ww_hornet_zm" ],
-        [ "Jotunn Star", 8, "sat_ww_locust_zm" ],
-        [ "Blundergat", 8, "sat_ww_mantis_zm" ],
-        [ "Sundergat", 8, "sundergat" ],
-        [ "LGM-1", 8, "sat_ww_ruby_zm" ],
-        [ "Warden's Blight", 8, "sat_ww_scarab_zm" ],
+        [ "Necrofluid (Ashes, Rex)", 8, "sat_ww_firefly_zm" ],
+        [ "Nekomancer (Kowakujo)", 8, "sat_ww_hornet_zm" ],
+        [ "Jotunn Star (Totenreich)", 8, "sat_ww_locust_zm" ],
+        [ "Blundergat (Paradox)", 8, "sat_ww_mantis_zm" ],
+        [ "Sundergat (Paradox)", 8, "sundergat" ],
+        [ "LGM-1 (Astra)", 8, "sat_ww_ruby_zm" ],
+        [ "Warden's Blight (Rex)", 8, "sat_ww_scarab_zm" ],
         [ "Ray Gun", 8, "sat_ww_raygun_mp" ],
         [ "Ray Gun Mk2", 8, "sat_ww_raygunmark2_mp" ],
         [ "Back", 1, "" ]
@@ -410,7 +434,9 @@ function menu_build_pages()
         [ "Classic points (traps pay 0)", 4, "cl_points" ],
         [ "No scrap", 4, "cl_salvage" ],
         [ "One-hit wonder weapons", 4, "cl_ww" ],
+        [ "Double Tap 2.0 (2 bullets)", 4, "cl_dtap" ],
         [ "Zombies in a line (training)", 4, "no_spread" ],
+        [ "Running zombies", 4, "cl_run" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -434,15 +460,34 @@ function menu_build_pages()
     menu_add_page( "Zombies", "ZOMBIES", [
         [ "Kill all zombies", 5, "clear_ai" ],
         [ "Leave one zombie", 5, "leave_one" ],
+        [ "Spawn a zombie", 2, "ZSpawn" ],
+        [ "Zombie speed", 2, "ZombieSpeed" ],
+        [ "Behavior", 2, "ZombieBehav" ],
+        [ "Spawning", 2, "ZombieSpawns" ],
+        [ "Zombie counter", 4, "zombie_counter" ],
+        [ "Tessie", 5, "tessie" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZombieSpeed", "ZOMBIE SPEED", [
+        [ "Walk", 9, "zombie_speed", "walk" ],
+        [ "Run", 9, "zombie_speed", "run" ],
+        [ "Sprint", 9, "zombie_speed", "sprint" ],
+        [ "Normal (game)", 9, "zombie_speed", "" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZombieBehav", "BEHAVIOR", [
+        [ "Freeze zombies", 4, "freeze" ],
+        [ "Zombies in a line (training)", 4, "no_spread" ],
         [ "Despawn zombies", 4, "despawn" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZombieSpawns", "SPAWNING", [
         [ "Stop spawns", 4, "pause_spawn" ],
         [ "Zombies per round", 2, "ZombieCount" ],
         [ "Spawn rate", 2, "SpawnRate" ],
-        [ "Friendly zombies", 5, "ally_bosses" ],
-        [ "Tessie", 5, "tessie" ],
-        [ "Zombie counter", 4, "zombie_counter" ],
-        [ "Freeze zombies", 4, "freeze" ],
-        [ "Zombies in a line (training)", 4, "no_spread" ],
         [ "Force spawn here", 5, "force_spawn" ],
         [ "Add a spawn point", 5, "spawn_pt_set" ],
         [ "Spawn at placed point", 4, "spawn_pt" ],
@@ -457,6 +502,65 @@ function menu_build_pages()
         [ "12 zombies", 9, "zombie_cap", 12 ],
         [ "24 zombies", 9, "zombie_cap", 24 ],
         [ "Normal count", 9, "zombie_cap", 0 ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZSpawn", "SPAWN A ZOMBIE", [
+        [ "Hostile mode", 4, "spawn_hostile" ],
+        [ "Regular zombies", 2, "ZSpawnBase" ],
+        [ "Specials", 2, "ZSpawnSpecial" ],
+        [ "Elites", 2, "ZSpawnElite" ],
+        [ "Boss", 2, "ZSpawnBoss" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZSpawnBase", "REGULAR ZOMBIES", [
+        [ "Zombie", 9, "spawn_ai", "zombie_base" ],
+        [ "Toxic zombie", 9, "spawn_ai", "zombie_base_toxic" ],
+        [ "Light armored zombie", 9, "spawn_ai", "zombie_base_armored_light" ],
+        [ "Heavy armored zombie", 9, "spawn_ai", "zombie_base_armored_heavy" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZSpawnSpecial", "SPECIALS", [
+        [ "Hellhound", 9, "spawn_ai", "zombie_hellhound" ],
+        [ "Shade", 9, "spawn_ai", "zombie_shade" ],
+        [ "Ghoul", 9, "spawn_ai", "zombie_ghoul" ],
+        [ "Viper", 9, "spawn_ai", "zombie_viper" ],
+        [ "Mini Viper", 9, "spawn_ai", "zombie_viper_mini" ],
+        [ "Mimic", 9, "spawn_ai", "zombie_mimic" ],
+        [ "Mimic EMP", 9, "spawn_ai", "zombie_mimic_emp" ],
+        [ "Loom", 9, "spawn_ai", "zombie_loom" ],
+        [ "Loom Minion", 9, "spawn_ai", "zombie_loom_minion" ],
+        [ "Karkinos", 9, "spawn_ai", "zombie_karkinos" ],
+        [ "Amalgam", 9, "spawn_ai", "zombie_amalgam" ],
+        [ "Orion", 9, "spawn_ai", "zombie_orion" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZSpawnElite", "ELITES", [
+        [ "Abomination", 9, "spawn_ai", "zombie_abom" ],
+        [ "Abomination HVT", 9, "spawn_ai", "zombie_abom_hvt" ],
+        [ "Zursa", 9, "spawn_ai", "zombie_callisto" ],
+        [ "Zursa HVT", 9, "spawn_ai", "zombie_callisto_hvt" ],
+        [ "Ghoul HVT", 9, "spawn_ai", "zombie_ghoul_hvt" ],
+        [ "Karkinos HVT", 9, "spawn_ai", "zombie_karkinos_hvt" ],
+        [ "Mimic HVT", 9, "spawn_ai", "zombie_mimic_hvt" ],
+        [ "Mimic EMP HVT", 9, "spawn_ai", "zombie_mimic_hvt_emp" ],
+        [ "Orion HVT", 9, "spawn_ai", "zombie_orion_hvt" ],
+        [ "Viper HVT", 9, "spawn_ai", "zombie_viper_hvt" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ZSpawnBoss", "BOSS", [
+        [ "Z-Rex (Rex)", 9, "spawn_ai", "sat_spawner_zombie_phobos_zm" ],
+        [ "Golem (Rex)", 9, "spawn_ai", "t10_spawner_zombie_triton" ],
+        [ "Neptune (Rex, Astra)", 9, "spawn_ai", "sat_spawner_zombie_neptune_zm" ],
+        [ "Uranus (Astra)", 9, "spawn_ai", "sat_spawner_zombie_uranus_zm" ],
+        [ "Galileo (Astra)", 9, "spawn_ai", "zombie_galileo" ],
+        [ "Galileo Drone (Astra)", 9, "spawn_ai", "zombie_galileo_drone" ],
+        [ "Aeon (Paradox)", 9, "spawn_ai", "zombie_aeon" ],
+        [ "Virgil (Totenreich)", 9, "spawn_ai", "zombie_boss_virgil" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -524,7 +628,6 @@ function menu_build_pages()
         [ "Start Boss Fight", 5, "boss_fight" ],
         [ "Restart Map", 5, "map_restart" ],
         [ "Mystery box", 2, "Box" ],
-        [ "Disable all mods", 5, "reset" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -532,6 +635,7 @@ function menu_build_pages()
     menu_add_page( "Forge", "FORGE", [
         [ "Props", 2, "ForgeDeco" ],
         [ "Machines", 2, "ForgeMach" ],
+        [ "Teleporter (place 2)", 9, "forge", 114 ],
         [ "Adjust last", 2, "ForgeEdit" ],
         [ "Save", 2, "ForgeSave" ],
         [ "Delete last", 9, "forge", 13 ],
@@ -541,13 +645,37 @@ function menu_build_pages()
 
     menu_add_page( "ForgeDeco", "PROPS", [
         [ "Box", 9, "forge", 0 ],
-        [ "Door", 9, "forge", 5 ],
-        [ "Wall", 9, "forge", 11 ],
+        [ "Doors", 2, "ForgePortes" ],
+        [ "Walls", 2, "ForgeMurs" ],
+        [ "Objects", 2, "ForgeObjets" ],
+        [ "Zombie window", 9, "forge", 113 ],
         [ "Tower", 9, "forge", 12 ],
         [ "Stairs", 9, "forge", 7 ],
         [ "Mini base", 9, "forge", 10 ],
         [ "Sky platform", 9, "forge", 8 ],
         [ "Stack on last", 9, "forge", 6 ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ForgePortes", "DOORS", [
+        [ "Webbed gate", 9, "forge", 121 ],
+        [ "Ornate door (some maps)", 9, "forge", 5 ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ForgeMurs", "WALLS", [
+        [ "Box wall", 9, "forge", 11 ],
+        [ "Low wall", 9, "forge", 103 ],
+        [ "Wide wall", 9, "forge", 104 ],
+        [ "Wall with opening", 9, "forge", 106 ],
+        [ "Pillar", 9, "forge", 105 ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "ForgeObjets", "OBJECTS", [
+        [ "Essence container", 9, "forge", 120 ],
+        [ "Pack-a-Punch (deco)", 9, "forge", 124 ],
+        [ "Weapon machine", 9, "forge", 125 ],
         [ "Back", 1, "" ]
     ] );
 
@@ -565,9 +693,14 @@ function menu_build_pages()
 
     menu_add_page( "ForgeEdit", "ADJUST LAST", [
         [ "Rotate last", 9, "forge", 16 ],
+        [ "Rotate last (-45)", 9, "forge", 22 ],
         [ "Push last away", 9, "forge", 17 ],
+        [ "Move last back", 9, "forge", 23 ],
+        [ "Move last left", 9, "forge", 24 ],
+        [ "Move last right", 9, "forge", 25 ],
         [ "Raise last", 9, "forge", 18 ],
         [ "Lower last", 9, "forge", 19 ],
+        [ "Delete nearest", 9, "forge", 26 ],
         [ "Back", 1, "" ]
     ] );
 
@@ -581,6 +714,17 @@ function menu_build_pages()
         [ "Menu color", 5, "theme" ],
         [ "Menu on the right", 4, "menu_right" ],
         [ "Text mode (no HUD)", 4, "text_mode" ],
+        [ "Profiles", 2, "Profiles" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "Profiles", "PROFILES", [
+        [ "Save profile 1", 9, "prof_save", 1 ],
+        [ "Load profile 1", 9, "prof_load", 1 ],
+        [ "Save profile 2", 9, "prof_save", 2 ],
+        [ "Load profile 2", 9, "prof_load", 2 ],
+        [ "Save profile 3", 9, "prof_save", 3 ],
+        [ "Load profile 3", 9, "prof_load", 3 ],
         [ "Back", 1, "" ]
     ] );
 }
@@ -615,7 +759,8 @@ function menu_nav_test()
     {
         self.zmm.nav_team = level.zombie_team;
     }
-    self.zmm.nav_ai = agent_manager::spawn_agent( "zombie_base_armored_light", self.origin + anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 200, self getplayerangles(), self.zmm.nav_team );
+    self.zmm.spawn_pos = self.origin + anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 200;
+    self.zmm.nav_ai = agent_manager::spawn_agent( "zombie_base_armored_light", menu_nav_point( self.zmm.spawn_pos ), self getplayerangles(), self.zmm.nav_team );
     return isdefined( self.zmm.nav_ai ) && isalive( self.zmm.nav_ai );
 }
 
@@ -678,6 +823,11 @@ function menu_add_page( id, title, items )
     {
         if ( entry[ 1 ] == 4 || entry[ 1 ] == 5 )
         {
+            // literal strings: the profiles cannot rely on getarraykeys, which hashes some keys
+            if ( entry[ 1 ] == 4 && !isdefined( level.zmm_labels[ entry[ 2 ] ] ) )
+            {
+                level.zmm_toggle_keys[ level.zmm_toggle_keys.size ] = entry[ 2 ];
+            }
             level.zmm_labels[ entry[ 2 ] ] = entry[ 0 ];
         }
     }
@@ -737,7 +887,7 @@ function menu_on_spawned( params )
     state.has_save = 0;
     state.theme = 0;
     state.lua = 0;
-    state.status = "";
+    state.nav_open = getdvar( @"zmm_open" );
     state.spawn_origin = self.origin;
     state.spawn_angles = self getplayerangles();
     self.zmm = state;
@@ -785,6 +935,10 @@ function menu_input_loop()
                 }
                 wait 0.2;
             }
+            else if ( menu_lua_open() )
+            {
+                menu_open();
+            }
             else
             {
                 wait 0.1;
@@ -792,6 +946,7 @@ function menu_input_loop()
             continue;
         }
 
+        menu_sync_pad();
         if ( menu_lua_nav() )
         {
             wait 0.05;
@@ -851,7 +1006,46 @@ function menu_lua_nav()
         menu_move( 1 );
         return true;
     }
+    if ( getdvar( @"zmm_enter" ) != state.nav_enter )
+    {
+        state.nav_enter = getdvar( @"zmm_enter" );
+        menu_confirm();
+        return true;
+    }
+    if ( getdvar( @"zmm_back" ) != state.nav_back )
+    {
+        state.nav_back = getdvar( @"zmm_back" );
+        menu_back();
+        return true;
+    }
     return false;
+}
+
+// tells the Lua footer which device the host is on (same builtin as the game's gamepad_only / kbm_only prompts)
+function menu_sync_pad()
+{
+    state = self.zmm;
+    if ( !state.lua )
+    {
+        return;
+    }
+    state.pad = istrue( self function_7cab310f9d8209c9() ) ? "1" : "0";
+    if ( getdvar( @"zmm_pad" ) != state.pad )
+    {
+        setdvar( @"zmm_pad", state.pad );
+    }
+}
+
+// Insert: the zmm_open counter comes from the host's keyboard only
+function menu_lua_open()
+{
+    state = self.zmm;
+    if ( getdvar( @"zmm_open" ) == state.nav_open )
+    {
+        return false;
+    }
+    state.nav_open = getdvar( @"zmm_open" );
+    return menu_is_host();
 }
 
 function menu_open()
@@ -862,10 +1056,11 @@ function menu_open()
     state.top = 0;
     state.stack = [];
     state.depth = 0;
-    state.status = "Round " + menu_current_round();
     // presses made while the menu was closed are ignored
     state.nav_up = getdvar( @"zmm_up" );
     state.nav_down = getdvar( @"zmm_down" );
+    state.nav_enter = getdvar( @"zmm_enter" );
+    state.nav_back = getdvar( @"zmm_back" );
     state.is_open = true;
     menu_hud_create();
     menu_render();
@@ -875,6 +1070,7 @@ function menu_close()
 {
     state = self.zmm;
     state.is_open = false;
+    state.nav_open = getdvar( @"zmm_open" );
     state.stack = [];
     state.depth = 0;
     if ( istrue( state.lua ) )
@@ -1006,7 +1202,6 @@ function menu_notify( label, ok )
     {
         text = label + " ^1failed";
     }
-    self.zmm.status = text;
     if ( self.zmm.is_open )
     {
         menu_render();
@@ -1032,7 +1227,15 @@ function menu_tip_action( action_id, ok )
 
 function menu_is_host()
 {
-    return istrue( self function_b36623eefe0028c8() ) || ( isdefined( level.players[ 0 ] ) && self == level.players[ 0 ] );
+    // a guest can sit at level.players[ 0 ], so index 0 only counts when no player reports being host
+    foreach ( player in level.players )
+    {
+        if ( istrue( player function_b36623eefe0028c8() ) )
+        {
+            return self == player;
+        }
+    }
+    return isdefined( level.players[ 0 ] ) && self == level.players[ 0 ];
 }
 
 function menu_hud_create()
@@ -1290,15 +1493,6 @@ function menu_toggle( key )
         menu_tip_action( key, 0 );
         return;
     }
-    label = level.zmm_labels[ key ];
-    if ( now_on )
-    {
-        state.status = label + " ^2enabled";
-    }
-    else
-    {
-        state.status = label + " ^1disabled";
-    }
     if ( key == "menu_right" || key == "text_mode" )
     {
         menu_hud_create();
@@ -1429,7 +1623,7 @@ function menu_apply_toggle( key )
     if ( key == "classic" )
     {
         // "all on" switch of the Old School page
-        foreach ( sub in [ "old_school", "no_armor", "back_shield", "og_specials", "cl_prices", "cl_perk_cap", "cl_fizz", "cl_qr", "cl_sprinters", "cl_health", "cl_points", "cl_salvage", "cl_ww", "no_spread" ] )
+        foreach ( sub in [ "old_school", "no_armor", "back_shield", "og_specials", "cl_prices", "cl_perk_cap", "cl_fizz", "cl_qr", "cl_sprinters", "cl_health", "cl_points", "cl_salvage", "cl_ww", "cl_dtap", "no_spread", "cl_run" ] )
         {
             state.toggles[ sub ] = on ? 1 : 0;
             menu_apply_toggle( sub );
@@ -1460,8 +1654,9 @@ function menu_apply_toggle( key )
     {
         if ( on )
         {
-            // max specials alive at once, read by zm_round_spawning (-1 = game default)
+            // max specials alive at once, read by zm_round_spawning (-1 = game default, 0 = none); menu_elite_loop switches it
             setdvar( @"hash_3c05d1d16d772c9e", 1 );
+            level.zmm_special_round = menu_current_round();
             if ( !istrue( level.zmm_elite_hooked ) )
             {
                 level.zmm_elite_hooked = 1;
@@ -1493,7 +1688,7 @@ function menu_apply_toggle( key )
             state.spawn_pt_loop = 1;
             self thread menu_spawn_pt_loop();
         }
-        return isdefined( level.zmm_spawn_pts );
+        return !on || isdefined( level.zmm_spawn_pts ) || isdefined( level.zmm_windows );
     }
     if ( key == "no_spread" )
     {
@@ -1585,11 +1780,7 @@ function menu_apply_toggle( key )
     }
     if ( key == "speed" )
     {
-        if ( !isdefined( level.zmm_set_speed ) )
-        {
-            return false;
-        }
-        self [[ level.zmm_set_speed ]]( on ? 1.6 : 1 );
+        self setmovespeedscale( on ? 1.6 : 1 );
         return true;
     }
     if ( key == "free_craft" )
@@ -1749,18 +1940,22 @@ function menu_hud_loop()
         }
         if ( menu_toggle_state( "back_shield" ) )
         {
-            // a broken shield stays switched on and rebuilds itself at the next round
-            if ( state.shield_hits <= 0 && state.hud_round != state.shield_round )
+            // once a round, so walls of newly opened areas get hooked too
+            if ( !( level.zmm_armor_hook_round === state.hud_round ) )
             {
-                state.shield_hits = 15;
+                level.zmm_armor_hook_round = state.hud_round;
+                menu_armor_wall_hook();
             }
-            state.hud_text = state.hud_text + ( state.shield_hits > 0 ? "Shield: " + state.shield_hits + "/15" : "Shield: broken" );
+            state.hud_text = state.hud_text + ( state.shield_hits > 0 ? "Shield: " + state.shield_hits + "/15" : "Shield: broken (armor wall)" );
         }
         if ( menu_toggle_state( "speedrun" ) )
         {
             state.hud_text = state.hud_text + menu_sr_text();
         }
-        setdvar( @"zmm_hud", state.hud_text );
+        if ( menu_is_host() )
+        {
+            setdvar( @"zmm_hud", state.hud_text );
+        }
         // the speedrun clock shows tenths, so it refreshes 10 times a second; the round timer still counts whole seconds
         if ( menu_toggle_state( "speedrun" ) )
         {
@@ -1784,7 +1979,10 @@ function menu_hud_loop()
         }
     }
     state.hud_loop = 0;
-    setdvar( @"zmm_hud", "" );
+    if ( menu_is_host() )
+    {
+        setdvar( @"zmm_hud", "" );
+    }
 }
 
 // ---------------------------------------------------------------- speedrun splits
@@ -1820,7 +2018,7 @@ function menu_sr_setup()
         // main quest step practice splits 2 to 4 start on
         sr.jumps = [ #"serum_trial", #"hash_ff159ae12616b58", #"hash_30d17f8fd9002869" ];
         sr.lo = [ [ 8, 0, 1, 5000, 2 ], [ 0, 0, 0, 0, 0 ], [ 12, 0, 1, 10000, 2 ], [ 15, 2, 1, 10000, 2 ], [ 0, 3, 1, 0, 2 ] ];
-        sr.pkey = map + "_pos";
+        sr.pkey = "firefly2_pos";
     }
     else if ( map == "zm_sat_hornet" )
     {
@@ -1836,9 +2034,14 @@ function menu_sr_setup()
     }
     else if ( map == "zm_sat_mantis" )
     {
-        sr.cfg = [ #"hash_69a26aa656916aca", #"hash_14b84c237e411165", #"hash_c863b996e7e1593c" ];
-        sr.boss = "boss_fight_done";
+        // fixed splits: Blundergat picked up, orb on the truck in the past, boss dead
+        sr.mq = #"hash_c863b996e7e1593c";
         sr.ww = "sat_ww_mantis_zm";
+        sr.names = [ "Blundergat + Twins", "Mini games + Sundergat", "Dark Heart" ];
+        sr.flags = [ "ww_picked_up", "mantis_orb", "boss_fight_done" ];
+        sr.lo = [ [ 0, 0, 0, 0, 0 ], [ 9, 1, 2, 0, 7 ], [ 17, 3, 2, 15000, 7 ] ];
+        // new key: spots saved for the old generic splits do not match these
+        sr.pkey = "mantis3_pos";
     }
     else if ( map == "zm_sat_scarab" )
     {
@@ -1886,6 +2089,10 @@ function menu_sr_setup()
             sr.pb[ sr.pb.size ] = int( part );
         }
     }
+    if ( sr.flags.size == 0 )
+    {
+        return false;
+    }
     if ( sr.pb.size != sr.flags.size )
     {
         sr.pb = [];
@@ -1896,6 +2103,10 @@ function menu_sr_setup()
     if ( isdefined( sr.p_str ) && sr.p_str != "" && sr.p_str != "0" )
     {
         sr.practice = int( sr.p_str );
+        if ( sr.practice > sr.flags.size )
+        {
+            sr.practice = 0;
+        }
         nengine_store_set( "fuzmenu", "practice", "0" );
         nengine_store_save( "fuzmenu", "speedrun" );
     }
@@ -1960,13 +2171,29 @@ function menu_sr_add( sr, name, check, kind, ref )
     sr.names[ sr.names.size ] = name;
     sr.flags[ sr.flags.size ] = check;
     sr.kinds[ sr.kinds.size ] = kind;
-    sr.refs[ sr.refs.size ] = ref;
+    sr.refs[ sr.names.size - 1 ] = ref;
+}
+
+// Paradox: the game parks its energy ball entity at the past's cloud point when the orb appears, then moves it away
+function menu_sr_orb()
+{
+    sr = level.zmm_sr;
+    if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "has_started_pre_boss_two_sister_scenes" ) || !isdefined( level.var_dce65510aecfa2b1 ) )
+    {
+        return false;
+    }
+    sr.cloud = namespace_60b3bdcc70f79fc6::function_6141deaf935abd8f( "twins_vignette_cloud", "targetname" );
+    return isdefined( sr.cloud ) && distance( level.var_dce65510aecfa2b1.origin, sr.cloud.origin ) < 20;
 }
 
 // a split ends on a level flag (Astra, bosses) or on a quest / step struct marked done
 function menu_sr_done( index )
 {
     sr = level.zmm_sr;
+    if ( sr.flags[ index ] === "mantis_orb" )
+    {
+        return menu_sr_orb();
+    }
     if ( isstring( sr.flags[ index ] ) )
     {
         return namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( sr.flags[ index ] );
@@ -2037,7 +2264,10 @@ function menu_sr_loop()
         if ( menu_sr_done( sr.index ) )
         {
             sr.times[ sr.index ] = gettime() - sr.start;
-            sr.host menu_sr_store_pos( sr.index + 2 );
+            if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
+            {
+                sr.host menu_sr_store_pos( sr.index + 2 );
+            }
             iprintlnbold( "^2Split " + ( sr.index + 1 ) + "/" + sr.flags.size + " ^7" + sr.names[ sr.index ] + "  ^3" + menu_sr_time( sr.times[ sr.index ] ) + menu_sr_delta( sr.index ) );
             sr.index++;
         }
@@ -2170,6 +2400,10 @@ function menu_sr_practice_start( split )
     {
         return 0;
     }
+    if ( getdvar( @"zmm_lua" ) != "1" )
+    {
+        return 0;
+    }
     nengine_store_load( "fuzmenu", "speedrun" );
     nengine_store_set( "fuzmenu", "practice", "" + self.zmm.sr_split );
     nengine_store_save( "fuzmenu", "speedrun" );
@@ -2234,46 +2468,66 @@ function menu_sr_practice()
         if ( sr.practice >= 2 )
         {
             menu_sr_finish_quest( #"hash_d454d716ab61eea7", "ruby_wwq_complete" );
-            foreach ( player in level.players )
-            {
-                player thread menu_wonder_worker( "LGM-1", "sat_ww_ruby_zm" );
-            }
         }
         if ( sr.practice == 3 || sr.practice == 4 )
         {
             level thread zm_quest::function_80abdea0cd4c89a7( #"ruby_mq", sr.jumps[ sr.practice - 3 ] );
         }
     }
+    else if ( sr.map == "zm_sat_mantis" )
+    {
+        if ( sr.practice >= 2 )
+        {
+            menu_sr_finish_quest( #"hash_69a26aa656916aca", "mantis_pap_quest" );
+            menu_sr_finish_quest( #"hash_14b84c237e411165", "ww_picked_up" );
+        }
+        if ( sr.practice == 2 )
+        {
+            // the step right after the twins' swing scene, before the first mini game
+            level thread zm_quest::function_80abdea0cd4c89a7( sr.mq, #"hash_e648d162912a28d7" );
+        }
+    }
     else
     {
+        namespace_60b3bdcc70f79fc6::function_36488e0e5a90d20f( "power_on" );
         menu_sr_finish_quest( #"firefly_pap_quest", "firefly_pap_quest" );
+        if ( sr.practice <= 4 )
+        {
+            menu_sr_tessie();
+        }
         if ( sr.practice >= 2 )
         {
             menu_sr_finish_quest( #"firefly_ww_quest", "firefly_ww_quest" );
-            foreach ( player in level.players )
-            {
-                player thread menu_wonder_worker( "Gauntlet", sr.ww );
-            }
         }
         if ( sr.practice >= 2 && sr.practice <= 4 )
         {
+            // a jump's skipped step 2 never sets it, and its end callback blocks every later step on it
+            namespace_60b3bdcc70f79fc6::function_36488e0e5a90d20f( "m_complete" );
             level thread zm_quest::function_80abdea0cd4c89a7( sr.mq, sr.jumps[ sr.practice - 2 ] );
         }
     }
-    if ( isdefined( sr.lo ) )
+    if ( isdefined( sr.lo ) && !( sr.map == "zm_sat_mantis" && sr.practice == 1 ) )
     {
-        if ( sr.practice == 5 )
+        if ( sr.practice == 5 && sr.map != "zm_sat_ruby" )
         {
             sr.host menu_start_boss_fight();
         }
         menu_open_doors();
         wait 1;
         menu_sr_loadout( sr.lo[ sr.practice - 1 ] );
+        if ( sr.map == "zm_sat_mantis" )
+        {
+            menu_sr_mantis_start();
+        }
+        else
+        {
+            menu_sr_ww_start();
+        }
     }
     wait 2;
     nengine_store_load( "fuzmenu", "speedrun" );
     sr.pos_str = nengine_store_get( "fuzmenu", sr.pkey + sr.practice );
-    if ( isdefined( sr.pos_str ) && sr.pos_str != "" )
+    if ( isdefined( sr.pos_str ) && sr.pos_str != "" && strtok( sr.pos_str, "," ).size >= 4 && !( sr.map == "zm_sat_mantis" && sr.practice == 3 ) && sr.practice != 5 )
     {
         sr.parts = strtok( sr.pos_str, "," );
         sr.host menu_do_teleport( ( int( sr.parts[ 0 ] ), int( sr.parts[ 1 ] ), int( sr.parts[ 2 ] ) ), ( 0, int( sr.parts[ 3 ] ), 0 ) );
@@ -2292,8 +2546,137 @@ function menu_sr_practice()
         waitframe();
     }
     sr.seg = gettime() - sr.start;
-    sr.host menu_sr_store_pos( sr.practice + 1 );
+    if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
+    {
+        sr.host menu_sr_store_pos( sr.practice + 1 );
+    }
     iprintlnbold( "^2Split " + sr.practice + " ^7" + sr.names[ sr.index ] + "  ^3" + menu_sr_time( sr.seg ) + menu_sr_seg_delta() );
+}
+
+// Ashes: Tessie stage 3 (lasers), or stage 4 (turret) for the challenges
+function menu_sr_tessie()
+{
+    sr = level.zmm_sr;
+    if ( sr.practice < 4 )
+    {
+        level thread zm_quest::function_80abdea0cd4c89a7( #"hash_be480f8c1344afa8", #"hash_6dcaf3e883539a32" );
+        return;
+    }
+    level thread zm_quest::function_80abdea0cd4c89a7( #"hash_be480f8c1344afa8", #"hash_173b93792d622394" );
+    wait 1;
+    menu_sr_finish_quest( #"hash_be480f8c1344afa8", "upgraded_pluto_to_stage_4" );
+}
+
+function menu_sr_has_ww( player )
+{
+    if ( !isdefined( player.primaryinventory ) )
+    {
+        return true;
+    }
+    foreach ( weapon in player.primaryinventory )
+    {
+        if ( isdefined( weapon ) && isdefined( weapon.basename ) && weapon.basename == level.zmm_sr.ww_name )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+// Ashes challenges: Tessie already has her turret, so the skipped keys step's turret part must not stay floating
+function menu_sr_free_mg_part()
+{
+    level endon( #"game_ended" );
+    level namespace_60b3bdcc70f79fc6::function_fb7b1af19016b7f4( "MQ_STEP_10_COMPLETE" );
+    if ( isdefined( level.var_2b5fa68e6a533218.var_d5a2309951a61519 ) )
+    {
+        level.var_2b5fa68e6a533218.var_d5a2309951a61519 function_7f6c18bb105e8057();
+    }
+}
+
+// Astra and Ashes: wonder weapon after the loadout; Astra's last split then finishes the kit and starts the boss
+function menu_sr_ww_start()
+{
+    sr = level.zmm_sr;
+    if ( sr.practice < 2 )
+    {
+        return;
+    }
+    sr.ww_label = "Gauntlet";
+    sr.ww_name = sr.ww;
+    if ( sr.map == "zm_sat_ruby" )
+    {
+        sr.ww_label = "LGM-1";
+        sr.ww_name = "sat_ww_ruby_zm";
+    }
+    foreach ( player in level.players )
+    {
+        player thread menu_wonder_worker( sr.ww_label, sr.ww_name );
+    }
+    // the give loads the weapon for up to 3 seconds, then the player switches to it
+    wait 5;
+    // shortcut: one retry for a lost give; loop until held if it still goes missing in game
+    foreach ( player in level.players )
+    {
+        if ( !menu_sr_has_ww( player ) )
+        {
+            player thread menu_wonder_worker( sr.ww_label, sr.ww_name );
+        }
+    }
+    if ( sr.map == "zm_sat_firefly" && sr.practice == 4 )
+    {
+        level thread menu_sr_free_mg_part();
+    }
+    if ( sr.map != "zm_sat_ruby" || sr.practice != 5 )
+    {
+        return;
+    }
+    foreach ( player in level.players )
+    {
+        // shortcut: PaP lands on the held gun, a no-op if the LGM is not held; pass the weapon if it stays unupgraded
+        player menu_pap( 3 );
+        if ( isdefined( player.primaryinventory ) )
+        {
+            foreach ( weapon in player.primaryinventory )
+            {
+                player givemaxammo( weapon );
+            }
+        }
+    }
+    sr.host menu_start_boss_fight();
+}
+
+// Paradox: wonder weapon of the split, then split 3 tops up the ammo and starts the boss
+function menu_sr_mantis_start()
+{
+    sr = level.zmm_sr;
+    foreach ( player in level.players )
+    {
+        if ( sr.practice == 3 )
+        {
+            player thread menu_wonder_worker( "Sundergat", "sundergat" );
+        }
+        else
+        {
+            player thread menu_wonder_worker( "Blundergat", sr.ww );
+        }
+    }
+    if ( sr.practice != 3 )
+    {
+        return;
+    }
+    wait 1;
+    foreach ( player in level.players )
+    {
+        if ( isdefined( player.primaryinventory ) )
+        {
+            foreach ( weapon in player.primaryinventory )
+            {
+                player givemaxammo( weapon );
+            }
+        }
+    }
+    sr.host menu_start_boss_fight();
 }
 
 // spec loadout of the practice split: [ round, PaP tier, armor, points, perks ]; 0 skips that part
@@ -2301,6 +2684,11 @@ function menu_sr_loadout( lo )
 {
     sr = level.zmm_sr;
     sr.perk_order = [ "specialty_juggernog", "specialty_staminup", "specialty_speedcola", "specialty_quickrevive" ];
+    if ( sr.map == "zm_sat_mantis" )
+    {
+        // d_mod = Double Tap, w_mod = Wisp Tea
+        sr.perk_order = [ "specialty_juggernog", "specialty_deadshot", "specialty_staminup", "specialty_vulture_aid", "specialty_d_mod", "specialty_speedcola", "specialty_w_mod" ];
+    }
     if ( lo[ 0 ] > 0 )
     {
         menu_jump_round( lo[ 0 ] );
@@ -2311,6 +2699,9 @@ function menu_sr_loadout( lo )
         {
             player menu_pap( lo[ 1 ] );
         }
+        // shortcut: the spec gives no rarity, tier + 1 is assumed (PaP III = legendary); use a loadout column if a split differs
+        wait 0.5;
+        player menu_rarity( lo[ 1 ] + 1 );
         if ( lo[ 2 ] > 0 )
         {
             player zm_armor::give_armor( lo[ 2 ] );
@@ -2332,8 +2723,10 @@ function menu_sr_loadout( lo )
     }
     else if ( sr.practice == 5 )
     {
-        // shortcut: Death Machine dropped as the map power-up, nothing given if the map has none
-        sr.host menu_drop_powerup( "death_machine" );
+        foreach ( player in level.players )
+        {
+            player Killstreaks::function_545ea1188d337b59( "death_machine_gun", "other", undefined, undefined, undefined, 1 );
+        }
     }
 }
 
@@ -2341,6 +2734,28 @@ function menu_sr_loadout( lo )
 function menu_sr_default_tp()
 {
     sr = level.zmm_sr;
+    if ( sr.map == "zm_sat_mantis" && sr.practice == 2 )
+    {
+        sr.host menu_do_teleport( ( 57344, -31526, -120 ), ( 0, 193, 0 ) );
+        return;
+    }
+    if ( sr.map == "zm_sat_firefly" && sr.practice != 2 && sr.practice != 5 )
+    {
+        // shortcut: spots read from the game's scripts and not seen in game; a spot saved by hand overrides them
+        if ( sr.practice == 1 && isdefined( level.europa_unlock_ee ) && isdefined( level.europa_unlock_ee.europa ) )
+        {
+            sr.host menu_do_teleport( level.europa_unlock_ee.europa.origin + ( 0, 60, 8 ), ( 0, 270, 0 ) );
+        }
+        else if ( sr.practice == 3 && isdefined( level.var_209ed49971299121 ) )
+        {
+            sr.host menu_do_teleport( level.var_209ed49971299121.origin + ( -100, -1300, 8 ), ( 0, 90, 0 ) );
+        }
+        else if ( sr.practice == 4 && isdefined( level.var_209ed49971299121 ) )
+        {
+            sr.host menu_do_teleport( level.var_209ed49971299121.origin + ( 0, -60, 8 ), ( 0, 90, 0 ) );
+        }
+        return;
+    }
     if ( sr.map != "zm_sat_ruby" || sr.practice > 4 )
     {
         return;
@@ -2373,7 +2788,11 @@ function menu_sr_default_tp()
 function menu_sr_show()
 {
     sr = level.zmm_sr;
-    if ( isdefined( sr.host.zmm ) && !sr.host menu_toggle_state( "speedrun" ) )
+    while ( isdefined( sr.host ) && !isdefined( sr.host.zmm ) )
+    {
+        waitframe();
+    }
+    if ( isdefined( sr.host ) && !sr.host menu_toggle_state( "speedrun" ) )
     {
         sr.host.zmm.toggles[ "speedrun" ] = 1;
         sr.host menu_apply_toggle( "speedrun" );
@@ -2552,6 +2971,7 @@ function menu_elite_loop()
     state = self.zmm;
     while ( menu_loop_active( "og_specials" ) )
     {
+        setdvar( @"hash_3c05d1d16d772c9e", menu_current_round() >= level.zmm_special_round ? 1 : 0 );
         state.elite_list = menu_zombie_list();
         if ( isdefined( state.elite_list ) )
         {
@@ -2562,11 +2982,128 @@ function menu_elite_loop()
                     ai.zmm_elite_seen = 1;
                     level.zmm_elite_round = menu_current_round() + 4 + randomint( 2 );
                 }
+                if ( isdefined( ai ) && isalive( ai ) && ai.var_e4312c2c1a4a2190 === "special" && !istrue( ai.zmm_elite_seen ) )
+                {
+                    ai.zmm_elite_seen = 1;
+                    level.zmm_special_round = menu_current_round() + 4 + randomint( 2 );
+                }
             }
         }
         wait 0.25;
     }
     state.elite_loop = 0;
+}
+
+// the armor wall also sells the back shield; with the shield off or full it stays the game's own wall
+function menu_armor_wall_hook()
+{
+    if ( !isdefined( level.var_6e01645e9a8a6a06 ) || !isdefined( level.var_6e01645e9a8a6a06.var_e5c33e2780f5d934[ "wallbuy" ] ) )
+    {
+        return;
+    }
+    foreach ( inst in level.var_6e01645e9a8a6a06.var_e5c33e2780f5d934[ "wallbuy" ] )
+    {
+        if ( isdefined( inst.var_1d6cddfc47031bff[ "wallbuy_spawn" ] ) )
+        {
+            foreach ( wall_spawn in inst.var_1d6cddfc47031bff[ "wallbuy_spawn" ] )
+            {
+                wall = wall_spawn.var_f9b6c5834058f21c;
+                if ( isdefined( wall ) && wall.var_4b7489e415c1d8bc === "armor" && !isdefined( wall.zmm_orig_use ) && isdefined( wall.var_d8e3b07237845727 ) && isdefined( wall.var_b67012ddb354bc5a ) )
+                {
+                    wall.zmm_orig_use = wall.var_d8e3b07237845727;
+                    wall.zmm_orig_hint = wall.var_b67012ddb354bc5a;
+                    wall.var_d8e3b07237845727 = [ &menu_armor_wall_use ];
+                    wall.var_b67012ddb354bc5a = &menu_armor_wall_hint;
+                }
+            }
+        }
+    }
+}
+
+function menu_shield_buyable( player )
+{
+    return isplayer( player ) && isdefined( player.zmm ) && player menu_toggle_state( "back_shield" ) && player.zmm.shield_hits < 15 && player points::function_8f0a9502ff7321a() >= 1500;
+}
+
+// self = the wall's scriptable
+function menu_armor_wall_use( player )
+{
+    if ( menu_shield_buyable( player ) && player namespace_189fe7075a0930a5::function_d0b76708a627ce03( level.var_62f99ee1b2f61a35, 1500, 1, undefined, #"wallbuy" ) )
+    {
+        player.zmm.shield_hits = 15;
+        player function_a4c8b0f6cf33e203( #"hash_6cd86061dc419bd0", player );
+        return;
+    }
+    foreach ( callback in self.zmm_orig_use )
+    {
+        self thread [[ callback ]]( player );
+    }
+}
+
+// keeps the button live at full armor while a shield can be bought; the wall's localized title can't be changed
+function menu_armor_wall_hint( usable, player )
+{
+    hint = self [[ usable.zmm_orig_hint ]]( usable, player );
+    if ( menu_shield_buyable( player ) )
+    {
+        hint.var_d3e5c3e8160e26e1 = 1500;
+        hint.var_d4470f062ecd2964 = 1;
+        hint.var_b1ce92894353396a = undefined;
+    }
+    return hint;
+}
+
+function menu_spawn_pt_count()
+{
+    return ( isdefined( level.zmm_spawn_pts ) ? level.zmm_spawn_pts.size : 0 ) + ( isdefined( level.zmm_windows ) ? level.zmm_windows.size : 0 );
+}
+
+// each new zombie goes to a random placed point or Forge window
+function menu_spawn_pt_send( ai )
+{
+    level.zmm_spawn_i = randomint( menu_spawn_pt_count() );
+    if ( isdefined( level.zmm_spawn_pts ) )
+    {
+        if ( level.zmm_spawn_i < level.zmm_spawn_pts.size )
+        {
+            ai forceteleport( level.zmm_spawn_pts[ level.zmm_spawn_i ], level.zmm_spawn_angs[ level.zmm_spawn_i ] );
+            return;
+        }
+        level.zmm_spawn_i = level.zmm_spawn_i - level.zmm_spawn_pts.size;
+    }
+    // starts on the far side from the nearest player and crosses through the hole toward them
+    window = level.zmm_windows[ level.zmm_spawn_i ];
+    nearest = self;
+    foreach ( player in level.players )
+    {
+        if ( distance( player.origin, window.origin ) < distance( nearest.origin, window.origin ) )
+        {
+            nearest = player;
+        }
+    }
+    dir = anglestoforward( window.angles );
+    if ( vectordot( nearest.origin - window.origin, dir ) < 0 )
+    {
+        dir = dir * -1;
+    }
+    ai thread menu_window_hop( window.origin - dir * 70, window.origin + dir * 70, vectortoangles( dir ) );
+}
+
+// shortcut: teleports along an arc with no climb animation, use a real traversal if one is found
+function menu_window_hop( start, end, angles )
+{
+    self endon( #"death" );
+    self forceteleport( start, angles );
+    self menu_override( "zmm_window", [ "move_speed_scale" ], [ 0 ], 1 );
+    wait 1;
+    for ( self.zmm_hop = 0.1; self.zmm_hop < 1; self.zmm_hop = self.zmm_hop + 0.1 )
+    {
+        // peaks 50 above the floor, over the 32 high sill
+        self forceteleport( start + ( end - start ) * self.zmm_hop + ( 0, 0, 200 * self.zmm_hop * ( 1 - self.zmm_hop ) ), angles );
+        wait 0.05;
+    }
+    self forceteleport( end, angles );
+    self menu_override( "zmm_window", [ "move_speed_scale" ], [ 0 ], 0 );
 }
 
 // every zombie that appears is moved once to the placed point; marked so the ones already there keep walking
@@ -2576,16 +3113,14 @@ function menu_spawn_pt_loop()
     while ( menu_loop_active( "spawn_pt" ) )
     {
         state.spawn_pt_list = menu_zombie_list();
-        if ( isdefined( level.zmm_spawn_pts ) && isdefined( state.spawn_pt_list ) )
+        if ( menu_spawn_pt_count() > 0 && isdefined( state.spawn_pt_list ) )
         {
             foreach ( ai in state.spawn_pt_list )
             {
                 if ( !istrue( ai.zmm_spawn_pt ) && menu_ai_awake( ai ) && !menu_ai_protected( ai ) )
                 {
                     ai.zmm_spawn_pt = 1;
-                    // each new zombie goes to a random placed point
-                    level.zmm_spawn_i = randomint( level.zmm_spawn_pts.size );
-                    ai forceteleport( level.zmm_spawn_pts[ level.zmm_spawn_i ], level.zmm_spawn_angs[ level.zmm_spawn_i ] );
+                    menu_spawn_pt_send( ai );
                 }
             }
         }
@@ -2630,6 +3165,46 @@ function menu_train_loop()
     }
 }
 
+// one speed for every zombie, on the same stack as the training toggle and above it; "" gives the game back
+function menu_zombie_speed( value )
+{
+    level.zmm_zspeed = undefined;
+    if ( value != "" )
+    {
+        level.zmm_zspeed = value;
+        if ( !istrue( level.zmm_zspeed_loop ) )
+        {
+            level.zmm_zspeed_loop = 1;
+            level thread menu_zombie_speed_loop();
+        }
+    }
+}
+
+function menu_zombie_speed_loop()
+{
+    while ( isdefined( level.zmm_zspeed ) )
+    {
+        foreach ( ai in menu_zombie_list() )
+        {
+            if ( isdefined( ai ) && isalive( ai ) && !( ai.zmm_speed === level.zmm_zspeed ) && !menu_ai_protected( ai ) )
+            {
+                ai.zmm_speed = level.zmm_zspeed;
+                ai namespace_56fb43fc0b6ee43e::function_a8ce00e0448cb6f0( level.zmm_zspeed, "zmm_speed", 101 );
+            }
+        }
+        wait 0.25;
+    }
+    level.zmm_zspeed_loop = 0;
+    foreach ( ai in menu_zombie_list() )
+    {
+        if ( isdefined( ai ) && isdefined( ai.zmm_speed ) )
+        {
+            ai.zmm_speed = undefined;
+            ai namespace_56fb43fc0b6ee43e::function_a8ce00e0448cb6f0( undefined, "zmm_speed" );
+        }
+    }
+}
+
 // a zombie killed while frozen must not leave its script_origin behind
 function menu_anchor_cleanup( anchor )
 {
@@ -2662,7 +3237,6 @@ function menu_on_damaged( params )
         self.zmm.shield_hits--;
         if ( self.zmm.shield_hits <= 0 )
         {
-            self.zmm.shield_round = menu_current_round();
             // the game's own armor break sound (same check and call as namespace armor)
             if ( isdefined( level.gamemodebundle.var_b8f236e7432f6fdc ) && function_43b69b5e5fb69205( level.gamemodebundle.var_b8f236e7432f6fdc ) )
             {
@@ -2897,11 +3471,11 @@ function menu_forge( num )
             return false;
         }
         self.zmm.forge_last = level.zmm_forge[ level.zmm_forge.size - 1 ];
-        menu_forge_remove( self.zmm.forge_last );
         level.zmm_forge = function_95e538e1f602b947( level.zmm_forge, self.zmm.forge_last );
+        menu_forge_remove( self.zmm.forge_last );
         return true;
     }
-    if ( num >= 14 )
+    if ( num >= 14 && num < 100 )
     {
         return menu_forge_tool( num );
     }
@@ -2911,6 +3485,10 @@ function menu_forge( num )
     self.zmm.forge_angles = ( 0, self.zmm.forge_angles[ 1 ], 0 );
     self.zmm.forge_fwd = anglestoforward( self.zmm.forge_angles );
     self.zmm.forge_right = anglestoforward( ( 0, self.zmm.forge_angles[ 1 ] - 90, 0 ) );
+    if ( num >= 100 )
+    {
+        return menu_forge_piece( num );
+    }
     if ( num == 6 )
     {
         if ( level.zmm_forge.size == 0 || !isdefined( level.zmm_forge[ level.zmm_forge.size - 1 ] ) )
@@ -3079,6 +3657,12 @@ function menu_forge_machine( kind )
     if ( kind == "pap" )
     {
         self.zmm.mach.var_e502d431f3ba8706 = 1;
+        // Ashes drops the packed gun 140 units behind the machine (built for the truck): in a wall it is lost, so upgrade in hand
+        // shortcut: level-wide, the truck's PaP goes instant too once one is forged; per-machine needs a purchase callback
+        if ( isdefined( level.var_7ebad24685cd9f8c ) && level.mapname === "zm_sat_firefly" )
+        {
+            level.var_7ebad24685cd9f8c.var_2a42ba6a1a4e260d = 0;
+        }
         self.zmm.mach pack_a_punch::function_168917014e423ee8();
         return isdefined( self.zmm.mach.var_370acb837a3a86c3 );
     }
@@ -3182,6 +3766,10 @@ function menu_forge_tool( num )
     {
         return false;
     }
+    if ( num == 26 )
+    {
+        return menu_forge_remove_nearest();
+    }
     self.zmm.forge_last = level.zmm_forge[ level.zmm_forge.size - 1 ];
     self.zmm.nudge_pos = self.zmm.forge_last.origin;
     self.zmm.nudge_yaw = self.zmm.forge_last.angles[ 1 ];
@@ -3192,6 +3780,22 @@ function menu_forge_tool( num )
     if ( num == 17 )
     {
         self.zmm.nudge_pos = self.zmm.nudge_pos + anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 16;
+    }
+    if ( num == 22 )
+    {
+        self.zmm.nudge_yaw = self.zmm.nudge_yaw - 45;
+    }
+    if ( num == 23 )
+    {
+        self.zmm.nudge_pos = self.zmm.nudge_pos - anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 16;
+    }
+    if ( num == 24 )
+    {
+        self.zmm.nudge_pos = self.zmm.nudge_pos + anglestoforward( ( 0, self getplayerangles()[ 1 ] + 90, 0 ) ) * 16;
+    }
+    if ( num == 25 )
+    {
+        self.zmm.nudge_pos = self.zmm.nudge_pos + anglestoforward( ( 0, self getplayerangles()[ 1 ] - 90, 0 ) ) * 16;
     }
     if ( num == 18 )
     {
@@ -3206,8 +3810,16 @@ function menu_forge_tool( num )
         // a prop: moved with its navmesh obstacle
         self.zmm.forge_last.origin = self.zmm.nudge_pos;
         self.zmm.forge_last.angles = ( 0, self.zmm.nudge_yaw, 0 );
-        function_57cc0fae95e2c4f4( self.zmm.forge_last.zmm_nav );
-        self.zmm.forge_last.zmm_nav = function_6575994e0b3dcc16( self.zmm.nudge_pos, ( 30, 30, 32 ), self.zmm.forge_last.angles );
+        // a teleporter has no obstacle, and its portal is rebuilt at the new spot
+        if ( self.zmm.forge_last.zmm_model === "zmm_tele" )
+        {
+            menu_tele_portal( self.zmm.forge_last );
+        }
+        if ( isdefined( self.zmm.forge_last.zmm_nav ) )
+        {
+            function_57cc0fae95e2c4f4( self.zmm.forge_last.zmm_nav );
+            self.zmm.forge_last.zmm_nav = function_6575994e0b3dcc16( self.zmm.nudge_pos, menu_forge_nav_half( self.zmm.forge_last.zmm_model ), self.zmm.forge_last.angles );
+        }
         return true;
     }
     // a machine: rebuilt at the new spot, its spawn code places every part
@@ -3306,6 +3918,26 @@ function menu_forge_has_door()
     return level.zmm_forge_door;
 }
 
+function menu_forge_remove_nearest()
+{
+    self.zmm.forge_last = undefined;
+    foreach ( ent in level.zmm_forge )
+    {
+        if ( isdefined( ent ) && ( !isdefined( self.zmm.forge_last ) || distance( self.origin, ent.origin ) < distance( self.origin, self.zmm.forge_last.origin ) ) )
+        {
+            self.zmm.forge_last = ent;
+        }
+    }
+    if ( !isdefined( self.zmm.forge_last ) )
+    {
+        return false;
+    }
+    // the plain-prop path deletes the entity: take it off the list first
+    level.zmm_forge = function_95e538e1f602b947( level.zmm_forge, self.zmm.forge_last );
+    menu_forge_remove( self.zmm.forge_last );
+    return true;
+}
+
 // a forge prop (script_model + nav obstacle) or a forge machine struct and every entity its spawn made
 function menu_forge_remove( ent )
 {
@@ -3315,6 +3947,18 @@ function menu_forge_remove( ent )
     }
     if ( !isdefined( ent.zmm_kind ) )
     {
+        if ( ent.zmm_model === "zmm_window" )
+        {
+            level.zmm_windows = function_95e538e1f602b947( level.zmm_windows, ent );
+        }
+        if ( ent.zmm_model === "zmm_tele" )
+        {
+            level.zmm_teles = function_95e538e1f602b947( level.zmm_teles, ent );
+            if ( isdefined( ent.zmm_portal ) )
+            {
+                ent.zmm_portal function_7f6c18bb105e8057();
+            }
+        }
         if ( isdefined( ent.zmm_nav ) )
         {
             function_57cc0fae95e2c4f4( ent.zmm_nav );
@@ -3400,16 +4044,171 @@ function menu_forge_kill( e )
 }
 
 // solid for players + navmesh obstacle so zombies walk around it
+// every model here is in ingame_zm.ff, so it loads on all ZM maps; spacing comes from the bounds stored in that fastfile
+// shortcut: only the box and ornate door are known solid, swap out any model that fails the in-game collision test
+function menu_forge_piece( num )
+{
+    if ( num == 103 ) { menu_forge_wall( level.zmm_forge_model, 46, 32, 5, 1 ); }
+    if ( num == 104 ) { menu_forge_wall( level.zmm_forge_model, 46, 32, 9, 3 ); }
+    if ( num == 105 ) { menu_forge_wall( level.zmm_forge_model, 46, 32, 1, 6 ); }
+    if ( num == 106 )
+    {
+        // walk-through opening: skip the bottom two rows of the middle column
+        for ( self.zmm.forge_i = 0; self.zmm.forge_i < 15; self.zmm.forge_i++ )
+        {
+            if ( self.zmm.forge_i % 5 != 2 || self.zmm.forge_i >= 10 )
+            {
+                menu_forge_put( self.origin + self.zmm.forge_fwd * 80 + self.zmm.forge_right * ( ( self.zmm.forge_i % 5 ) - 2 ) * 46 + ( 0, 0, int( self.zmm.forge_i / 5 ) * 32 ), self.zmm.forge_angles );
+            }
+        }
+    }
+    if ( num == 113 ) { menu_forge_window(); }
+    if ( num == 114 )
+    {
+        // shortcut: sunk mystery box as the pad (46 x 28), upgrade if a real platform model that loads on every map turns up
+        level.zmm_forge_model = "zmm_tele";
+        menu_forge_put( self.origin + self.zmm.forge_fwd * 80 - ( 0, 0, 26 ), self.zmm.forge_angles );
+    }
+    if ( num == 120 ) { menu_forge_wall( "t10_zm_essence_container_large_orange", 0, 0, 1, 1 ); }
+    if ( num == 121 ) { menu_forge_wall( "sat_zm_webbed_gate_medium", 0, 0, 1, 1 ); }
+    if ( num == 124 ) { menu_forge_wall( "t10_zm_pap_fxanim", 0, 0, 1, 1 ); }
+    if ( num == 125 ) { menu_forge_wall( "t10_zm_weapon_machine_fxanim", 0, 0, 1, 1 ); }
+    return true;
+}
+
+// 5 x 5 boxes in front of the player, the middle 3 x 3 left open; 138 wide, 96 high, 32 off the floor
+function menu_forge_window()
+{
+    for ( self.zmm.forge_i = 0; self.zmm.forge_i < 25; self.zmm.forge_i++ )
+    {
+        if ( self.zmm.forge_i % 5 == 0 || self.zmm.forge_i % 5 == 4 || self.zmm.forge_i < 5 || self.zmm.forge_i >= 20 )
+        {
+            // the sill's middle box carries the window key, so a loaded window gets its spawn back
+            level.zmm_forge_model = self.zmm.forge_i == 2 ? "zmm_window" : "wood::sat_zm_toy_chest_rh_fxanim";
+            menu_forge_put( self.origin + self.zmm.forge_fwd * 80 + self.zmm.forge_right * ( ( self.zmm.forge_i % 5 ) - 2 ) * 46 + ( 0, 0, int( self.zmm.forge_i / 5 ) * 32 ), self.zmm.forge_angles );
+        }
+    }
+}
+
+// pairs by list order: 0-1, 2-3...; an odd last one waits for its partner
+function menu_tele_loop()
+{
+    while ( isdefined( level.zmm_teles ) && level.zmm_teles.size > 0 )
+    {
+        foreach ( player in level.players )
+        {
+            if ( isdefined( player ) && isalive( player ) )
+            {
+                player menu_tele_check();
+            }
+        }
+        wait 0.1;
+    }
+    level.zmm_tele_loop = 0;
+}
+
+// arriving locks the player until they step off the pad, or they would bounce back forever
+function menu_tele_check()
+{
+    if ( isdefined( self.zmm_tele_lock ) )
+    {
+        if ( distance( self.origin, self.zmm_tele_lock.origin + ( 0, 0, 26 ) ) < 64 )
+        {
+            return;
+        }
+        self.zmm_tele_lock = undefined;
+    }
+    for ( i = 0; i < level.zmm_teles.size; i++ )
+    {
+        other = i % 2 == 0 ? i + 1 : i - 1;
+        if ( other < level.zmm_teles.size && distance( self.origin, level.zmm_teles[ i ].origin + ( 0, 0, 26 ) ) < 40 )
+        {
+            self.zmm_tele_lock = level.zmm_teles[ other ];
+            // setorigin, not the game's teleport_player: that one plays the black screen
+            self setorigin( self.zmm_tele_lock.origin + ( 0, 0, 30 ) );
+            return;
+        }
+    }
+}
+
+// the game's own fast travel portal, at floor height over the pad
+function menu_tele_portal( ent )
+{
+    if ( isdefined( ent.zmm_portal ) )
+    {
+        ent.zmm_portal function_7f6c18bb105e8057();
+    }
+    ent.zmm_portal = function_d5fc43f4fe047ed6( "teleport_portal_zm_t10", ent.origin + ( 0, 0, 26 ), ent.angles );
+    if ( isdefined( ent.zmm_portal ) )
+    {
+        ent.zmm_portal function_7555d0f6ef1562a9( "base", "idle" );
+        return;
+    }
+    // no portal on this map: the sunk box still marks the pad
+    ent setmodel( "wood::sat_zm_toy_chest_rh_fxanim" );
+}
+
+// a door is a wall of one piece
+function menu_forge_wall( model, width, height, cols, rows )
+{
+    level.zmm_forge_model = model;
+    for ( self.zmm.forge_i = 0; self.zmm.forge_i < cols * rows; self.zmm.forge_i++ )
+    {
+        menu_forge_put( self.origin + self.zmm.forge_fwd * 80 + self.zmm.forge_right * ( ( self.zmm.forge_i % cols ) - ( cols - 1 ) * 0.5 ) * width + ( 0, 0, int( self.zmm.forge_i / cols ) * height ), self.zmm.forge_angles );
+    }
+}
+
+// zombies path around this box: wide pieces need more than the default
+function menu_forge_nav_half( model )
+{
+    return ( 30, 30, 32 );
+}
+
 function menu_forge_put( origin, angles )
 {
     self.zmm.forge_ent = spawn( "script_model", origin );
-    self.zmm.forge_ent setmodel( level.zmm_forge_model );
+    // a window's sill is a box saved under its own key; a teleporter shows a portal instead of a model
+    if ( !( level.zmm_forge_model === "zmm_tele" ) )
+    {
+        self.zmm.forge_ent setmodel( level.zmm_forge_model === "zmm_window" ? "wood::sat_zm_toy_chest_rh_fxanim" : level.zmm_forge_model );
+    }
     // kept as a string for the per-map save
     self.zmm.forge_ent.zmm_model = level.zmm_forge_model;
     self.zmm.forge_ent.angles = angles;
+    if ( level.zmm_forge_model === "zmm_tele" )
+    {
+        // walked into, so neither solid nor a nav obstacle
+        menu_tele_portal( self.zmm.forge_ent );
+        level.zmm_forge[ level.zmm_forge.size ] = self.zmm.forge_ent;
+        if ( !isdefined( level.zmm_teles ) )
+        {
+            level.zmm_teles = [];
+        }
+        level.zmm_teles[ level.zmm_teles.size ] = self.zmm.forge_ent;
+        if ( !istrue( level.zmm_tele_loop ) )
+        {
+            level.zmm_tele_loop = 1;
+            level thread menu_tele_loop();
+        }
+        return;
+    }
     self.zmm.forge_ent solid();
-    self.zmm.forge_ent.zmm_nav = function_6575994e0b3dcc16( origin, ( 30, 30, 32 ), angles );
+    self.zmm.forge_ent.zmm_nav = function_6575994e0b3dcc16( origin, menu_forge_nav_half( level.zmm_forge_model ), angles );
     level.zmm_forge[ level.zmm_forge.size ] = self.zmm.forge_ent;
+    if ( level.zmm_forge_model === "zmm_window" )
+    {
+        if ( !isdefined( level.zmm_windows ) )
+        {
+            level.zmm_windows = [];
+        }
+        level.zmm_windows[ level.zmm_windows.size ] = self.zmm.forge_ent;
+        self.zmm.toggles[ "spawn_pt" ] = 1;
+        if ( !istrue( self.zmm.spawn_pt_loop ) )
+        {
+            self.zmm.spawn_pt_loop = 1;
+            self thread menu_spawn_pt_loop();
+        }
+    }
 }
 
 // equipped loadout the game's class code built at spawn (weapons come with attachments, camo, reticle)
@@ -3435,20 +4234,44 @@ function menu_class_gun( action, num )
 }
 
 // shortcut: camo names follow the game's IW camo table (camo_a_01 .. camo_n_15); upgrade if BO7 renames them
-function menu_random_camo()
+// step 0 = random, +1 / -1 = next / previous of the 210 camo_<a..n>_<01..15>; busy: a second press would take the gun mid-swap
+function menu_camo( action, step )
+{
+    if ( istrue( self.zmm.camo_busy ) )
+    {
+        return;
+    }
+    self.zmm.camo_busy = 1;
+    if ( step == 0 )
+    {
+        self.zmm.camo_idx = randomint( 210 );
+    }
+    else if ( !isdefined( self.zmm.camo_idx ) )
+    {
+        self.zmm.camo_idx = step > 0 ? 0 : 209;
+    }
+    else
+    {
+        self.zmm.camo_idx = ( self.zmm.camo_idx + step + 210 ) % 210;
+    }
+    menu_camo_apply( action );
+    self.zmm.camo_busy = 0;
+}
+
+function menu_camo_apply( action )
 {
     self.zmm.camo_gun = self getcurrentweapon();
     if ( !isdefined( self.zmm.camo_gun ) || isnullweapon( self.zmm.camo_gun ) )
     {
-        menu_tip_action( "random_camo", 0 );
+        menu_tip_action( action, 0 );
         return;
     }
-    self.zmm.camo_num = randomintrange( 1, 16 );
-    self.zmm.camo_name = "camo_" + [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n" ][ randomint( 14 ) ] + ( self.zmm.camo_num < 10 ? "_0" : "_" ) + self.zmm.camo_num;
+    self.zmm.camo_num = ( self.zmm.camo_idx % 15 ) + 1;
+    self.zmm.camo_name = "camo_" + [ "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n" ][ int( self.zmm.camo_idx / 15 ) ] + ( self.zmm.camo_num < 10 ? "_0" : "_" ) + self.zmm.camo_num;
     self.zmm.camo_new = self.zmm.camo_gun withcamo( self.zmm.camo_name );
     if ( !isdefined( self.zmm.camo_new ) || isnullweapon( self.zmm.camo_new ) )
     {
-        menu_tip_action( "random_camo", 0 );
+        menu_tip_action( action, 0 );
         return;
     }
     self loadweaponsforplayer( [ self.zmm.camo_new ], 1 );
@@ -3467,7 +4290,7 @@ function menu_random_camo()
     self switchtoweapon( self.zmm.camo_new );
     menu_fill_weapon_ammo( self.zmm.camo_new );
     wait 0.25;
-    menu_notify( level.zmm_labels[ "random_camo" ] + " " + self.zmm.camo_name, self hasweapon( self.zmm.camo_new ) );
+    menu_notify( level.zmm_labels[ action ] + " " + self.zmm.camo_name, self hasweapon( self.zmm.camo_new ) );
 }
 
 function menu_remove_gun()
@@ -3753,7 +4576,15 @@ function menu_action( action_id )
     }
     else if ( action_id == "random_camo" )
     {
-        self thread menu_random_camo();
+        self thread menu_camo( action_id, 0 );
+    }
+    else if ( action_id == "camo_next" )
+    {
+        self thread menu_camo( action_id, 1 );
+    }
+    else if ( action_id == "camo_prev" )
+    {
+        self thread menu_camo( action_id, -1 );
     }
     else if ( action_id == "save_point" )
     {
@@ -3806,10 +4637,6 @@ function menu_action( action_id )
         self thread menu_do_clear_ai( 1 );
         menu_tip_action( action_id, 1 );
     }
-    else if ( action_id == "ally_bosses" )
-    {
-        menu_summon_allies();
-    }
     else if ( action_id == "tessie" )
     {
         menu_spawn_tessie();
@@ -3820,8 +4647,11 @@ function menu_action( action_id )
     }
     else if ( action_id == "map_restart" )
     {
-        setdvar( @"zmm_exec", "map_restart " + gettime() );
-        menu_tip_action( action_id, getdvar( @"zmm_lua" ) == "1" );
+        if ( menu_is_host() )
+        {
+            setdvar( @"zmm_exec", "map_restart " + gettime() );
+        }
+        menu_tip_action( action_id, menu_is_host() && getdvar( @"zmm_lua" ) == "1" );
     }
     else if ( action_id == "health" )
     {
@@ -4095,7 +4925,7 @@ function menu_gum_in_other_slot( name, slot )
 {
     for ( other = 1; other <= 3; other++ )
     {
-        if ( other != slot && self.var_b02f6e7abbbc8a84[ other ] == name )
+        if ( other != slot && self.var_b02f6e7abbbc8a84[ other ] === name )
         {
             return 1;
         }
@@ -4379,11 +5209,14 @@ function menu_fill_one( weapon )
 function menu_player_has_weapon( player, weaponname )
 {
     list = player getweaponslistprimaries();
-    foreach ( weapon in list )
+    if ( isdefined( list ) )
     {
-        if ( isdefined( weapon.basename ) && weapon.basename == weaponname )
+        foreach ( weapon in list )
         {
-            return true;
+            if ( isdefined( weapon.basename ) && weapon.basename == weaponname )
+            {
+                return true;
+            }
         }
     }
     cur = player getcurrentweapon();
@@ -4715,16 +5548,6 @@ function menu_drop_all()
     }
 }
 
-function menu_summon_allies()
-{
-    if ( !utility::issharedfuncdefined( #"agents", #"spawnnewagentaitype" ) && !utility::issharedfuncdefined( #"ai", #"spawnnewaitype_sharedfunc" ) )
-    {
-        menu_tip_action( "ally_bosses", 0 );
-        return;
-    }
-    self thread menu_do_summon_allies();
-}
-
 // jumps the map's main quest to its boss step: earlier steps run their own "skipped" setup
 function menu_start_boss_fight()
 {
@@ -4774,8 +5597,11 @@ function menu_boss_followup( map )
     if ( map != "zm_sat_firefly" && map != "zm_sat_hornet" )
     {
         // zm_mod_menu_post.lua draws zmm_big in large letters at the centre
-        setdvar( @"zmm_big", "Boss: wait 3 seconds..." );
-        if ( getdvar( @"zmm_lua" ) != "1" )
+        if ( menu_is_host() )
+        {
+            setdvar( @"zmm_big", "Boss: wait 3 seconds..." );
+        }
+        if ( !menu_is_host() || getdvar( @"zmm_lua" ) != "1" )
         {
             self iprintlnbold( "^3Boss: wait 3 seconds..." );
         }
@@ -4794,26 +5620,18 @@ function menu_boss_followup( map )
     }
     else if ( map == "zm_sat_ruby" )
     {
-        // zm_boss_ruby.gscc (Astra only) completes the quest and starts the boss itself
-        if ( isdefined( level.zmm_boss_ruby ) )
+        // zm_boss_astra.gsc (Astra only) completes the quest and starts the boss itself
+        if ( isdefined( level.zmm_boss_astra ) )
         {
-            level notify( "zmm_boss_ruby" );
+            if ( istrue( level.zmm_boss_started ) )
+            {
+                return;
+            }
+            level.zmm_boss_started = 1;
+            level notify( "zmm_boss_astra" );
             return;
         }
-        self iprintln( "^1Boss: zm_boss_ruby.gscc not loaded" );
-        // the boss prompt spawns once ruby_mq_complete is set by the skipped steps
-        for ( i = 0; i < 20 && !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "ruby_mq_complete" ); i++ )
-        {
-            wait 0.5;
-        }
-        // the struct lookup returns undefined in game: origin of step4_perfusion_mars_boss_interact from the map's struct table
-        spot = ( 4122.21, -41257.1, -12759.3 );
-        if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "ruby_mq_complete" ) )
-        {
-            self iprintln( "^1Boss: quest not done" );
-        }
-        self function_a544338816001600( spot + ( 0, 0, 40 ) );
-        self iprintlnbold( "^3Boss: press the prompt in front of you" );
+        self iprintlnbold( "^1Boss: zm_boss_astra.gsc missing, update FuzMenu" );
     }
 }
 
@@ -4855,58 +5673,59 @@ function menu_boss_rex()
     self iprintlnbold( "^3Boss: click the shelf" );
 }
 
-function menu_do_summon_allies()
+// map-only types stay refused elsewhere: spawning one its map doesn't load is untested
+function menu_ai_on_map( aitype )
 {
-    map = "";
-    if ( isdefined( level.mapname ) )
+    map = isdefined( level.mapname ) ? level.mapname : "";
+    if ( aitype == "sat_spawner_zombie_phobos_zm" || aitype == "t10_spawner_zombie_triton" )
     {
-        map = level.mapname;
+        return map == "zm_sat_scarab";
     }
-    if ( map == "zm_sat_scarab" )
+    if ( aitype == "sat_spawner_zombie_neptune_zm" )
     {
-        list = [ "sat_spawner_zombie_phobos_zm", "t10_spawner_zombie_triton", "sat_spawner_zombie_neptune_zm" ];
+        return map == "zm_sat_scarab" || map == "zm_sat_ruby";
     }
-    else if ( map == "zm_sat_firefly" )
+    if ( aitype == "sat_spawner_zombie_uranus_zm" || aitype == "zombie_galileo" || aitype == "zombie_galileo_drone" )
     {
-        list = [ "zombie_shade", "zombie_base_armored_light", "zombie_base_armored_heavy" ];
+        return map == "zm_sat_ruby";
     }
-    else if ( map == "zm_sat_hornet" )
+    if ( aitype == "zombie_aeon" )
     {
-        list = [ "zombie_orion", "zombie_abom", "zombie_hellhound" ];
+        return map == "zm_sat_mantis";
     }
-    else if ( map == "zm_sat_locust" )
+    if ( aitype == "zombie_boss_virgil" )
     {
-        list = [ "zombie_boss_virgil", "zombie_karkinos", "zombie_base_armored_heavy" ];
+        return map == "zm_sat_locust";
     }
-    else if ( map == "zm_sat_mantis" )
-    {
-        list = [ "zombie_aeon", "zombie_base_armored_heavy", "zombie_mimic_emp" ];
-    }
-    else if ( map == "zm_sat_ruby" )
-    {
-        list = [ "zombie_galileo", "zombie_shade", "zombie_galileo_drone" ];
-    }
-    else
-    {
-        list = [ "zombie_base_armored_heavy", "zombie_base_armored_light" ];
-    }
+    return true;
+}
 
-    offsets = [ ( 150, 0, 0 ), ( -150, 0, 0 ), ( 0, 150, 0 ), ( 0, -150, 0 ), ( 150, 150, 0 ), ( -150, -150, 0 ) ];
-    origin = self.origin;
-    spawned = 0;
-    for ( i = 0; i < list.size; i++ )
+// one zombie 200 units in front of the player, friendly unless Hostile mode is on
+function menu_spawn_type( aitype )
+{
+    if ( !menu_ai_on_map( aitype ) )
     {
-        if ( !isdefined( self ) || !isplayer( self ) )
-        {
-            return;
-        }
-        if ( menu_spawn_agent( list[ i ], origin + offsets[ i % offsets.size ] ) )
-        {
-            spawned = 1;
-        }
-        waitframe();
+        return 0;
     }
-    menu_tip_action( "ally_bosses", spawned );
+    self.zmm.spawn_pos = self.origin + anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 200;
+    origin = menu_nav_point( self.zmm.spawn_pos );
+    if ( !menu_toggle_state( "spawn_hostile" ) )
+    {
+        return menu_spawn_agent( aitype, origin );
+    }
+    agent = agent_manager::spawn_agent( aitype, origin, self getplayerangles(), isdefined( level.zombie_team ) ? level.zombie_team : "team_two_hundred" );
+    return isdefined( agent ) && isalive( agent );
+}
+
+// the game refuses spawns off the navmesh; falls back on the player's own spot when the target has none
+function menu_nav_point( origin )
+{
+    point = getclosestpointonnavmesh( origin );
+    if ( !isdefined( point ) )
+    {
+        point = getclosestpointonnavmesh( self.origin );
+    }
+    return isdefined( point ) ? point : origin;
 }
 
 function menu_spawn_agent( aitype, origin )
@@ -5028,6 +5847,12 @@ function menu_lock_vehicle_durability()
 function menu_param( label, action, value )
 {
     ok = 1;
+    // last value per action, for the profiles
+    if ( !isdefined( self.zmm.prof_vals ) )
+    {
+        self.zmm.prof_vals = [];
+    }
+    self.zmm.prof_vals[ action ] = value;
     if ( action == "pap" )
     {
         ok = menu_pap( value ) == 1;
@@ -5060,6 +5885,10 @@ function menu_param( label, action, value )
     else if ( action == "forge" )
     {
         ok = menu_forge( value );
+    }
+    else if ( action == "spawn_ai" )
+    {
+        ok = menu_spawn_type( value );
     }
     else if ( action == "forge_mach" )
     {
@@ -5158,7 +5987,186 @@ function menu_param( label, action, value )
     {
         ok = menu_sr_save_pos();
     }
+    else if ( action == "zombie_speed" )
+    {
+        menu_zombie_speed( value );
+    }
+    else if ( action == "coop_list" )
+    {
+        if ( menu_coop_page() )
+        {
+            menu_enter( self.zmm.coop_page );
+            return;
+        }
+        ok = 0;
+    }
+    else if ( action == "coop_pick" )
+    {
+        self.zmm.coop_target = value;
+        menu_enter( "CoopAction" );
+        return;
+    }
+    else if ( action == "coop_do" )
+    {
+        ok = menu_coop_do( value );
+    }
+    else if ( action == "prof_save" )
+    {
+        menu_prof_save( value );
+    }
+    else if ( action == "prof_load" )
+    {
+        ok = menu_prof_load( value );
+    }
     menu_notify( label, ok );
+}
+
+// one page per viewer: the list leaves out whoever opens it
+function menu_coop_page()
+{
+    self.zmm.coop_page = "Coop" + self getentitynumber();
+    items = [];
+    foreach ( player in level.players )
+    {
+        if ( player != self )
+        {
+            items[ items.size ] = [ isdefined( player.name ) ? player.name : "Player", 9, "coop_pick", player ];
+        }
+    }
+    if ( items.size == 0 )
+    {
+        return false;
+    }
+    items[ items.size ] = [ "Back", 1, "" ];
+    menu_add_page( self.zmm.coop_page, "CO-OP", items );
+    return true;
+}
+
+// shortcut: revives a downed player only, a dead spectator is not brought back; upgrade once the zombies respawn call is known
+function menu_coop_do( action )
+{
+    target = self.zmm.coop_target;
+    if ( !isdefined( target ) || !isalive( target ) )
+    {
+        return 0;
+    }
+    if ( action == "revive" )
+    {
+        if ( !istrue( target.inlaststand ) && !istrue( target.var_d0697a2251283e17 ) )
+        {
+            return 0;
+        }
+        target thread namespace_b80f99000c537b86::exit( "last_stand_revived", self );
+        return 1;
+    }
+    if ( !utility::issharedfuncdefined( #"zm_utility", #"teleport_player" ) )
+    {
+        return 0;
+    }
+    if ( action == "goto" )
+    {
+        self thread menu_do_teleport( target.origin, self getplayerangles() );
+    }
+    else
+    {
+        target thread menu_do_teleport( self.origin, target getplayerangles() );
+    }
+    return 1;
+}
+
+// "x,toggle,toggle|x,action=value*100,...|speed" in kronos/fuzmenu/profiles.json; the x keep each part non-empty for strtok
+function menu_prof_save( slot )
+{
+    str = "x";
+    foreach ( key in level.zmm_toggle_keys )
+    {
+        if ( key != "menu_right" && key != "text_mode" && menu_toggle_state( key ) )
+        {
+            str = str + "," + key;
+        }
+    }
+    str = str + "|x";
+    foreach ( action in [ "dmg_mult", "crit_mult", "melee_mult", "points_mult", "jump", "gravity", "salvage_mult", "spawn_rate", "powerup_time", "zombie_cap" ] )
+    {
+        if ( isdefined( self.zmm.prof_vals ) && isdefined( self.zmm.prof_vals[ action ] ) )
+        {
+            str = str + "," + action + "=" + int( self.zmm.prof_vals[ action ] * 100 + 0.5 );
+        }
+    }
+    str = str + "|" + ( isdefined( level.zmm_zspeed ) ? level.zmm_zspeed : "x" );
+    nengine_store_load( "fuzmenu", "profiles" );
+    nengine_store_set( "fuzmenu", "p" + slot, str );
+    nengine_store_save( "fuzmenu", "profiles" );
+}
+
+function menu_prof_load( slot )
+{
+    nengine_store_load( "fuzmenu", "profiles" );
+    str = nengine_store_get( "fuzmenu", "p" + slot );
+    if ( !isdefined( str ) || str == "" )
+    {
+        return 0;
+    }
+    parts = strtok( str, "|" );
+    if ( parts.size != 3 )
+    {
+        return 0;
+    }
+    menu_reset_mods();
+    foreach ( key in strtok( parts[ 0 ], "," ) )
+    {
+        // an OP Mode parent may already have switched its children on
+        if ( isdefined( level.zmm_labels[ key ] ) && !menu_toggle_state( key ) )
+        {
+            self.zmm.toggles[ key ] = 1;
+            if ( !menu_apply_toggle( key ) )
+            {
+                self.zmm.toggles[ key ] = 0;
+            }
+        }
+    }
+    self.zmm.prof_vals = [];
+    foreach ( pair in strtok( parts[ 1 ], "," ) )
+    {
+        kv = strtok( pair, "=" );
+        if ( kv.size == 2 )
+        {
+            menu_prof_set( kv[ 0 ], int( kv[ 1 ] ) / 100.0 );
+        }
+    }
+    menu_zombie_speed( parts[ 2 ] == "x" ? "" : parts[ 2 ] );
+    return 1;
+}
+
+// the silent side of the menu_param branches
+function menu_prof_set( action, value )
+{
+    self.zmm.prof_vals[ action ] = value;
+    if ( action == "jump" || action == "gravity" )
+    {
+        menu_move_option( action, value );
+    }
+    else if ( action == "salvage_mult" || action == "spawn_rate" || action == "powerup_time" )
+    {
+        menu_level_option( action, value );
+    }
+    else if ( action == "points_mult" )
+    {
+        self.zmm.points_mult = value;
+        menu_override( "zmm_points", [ "zm_points_scalar" ], [ value ], value != 1 );
+    }
+    else if ( action == "zombie_cap" )
+    {
+        menu_zombie_option( action, int( value ) );
+    }
+    else
+    {
+        if ( !isdefined( level.zmm_mult ) )
+        {
+            level.zmm_mult = [];
+        }
+        level.zmm_mult[ action ] = value;
+    }
 }
 
 // player-state overrides (as ProjectNexus): one owner per feature, cleared together
@@ -5292,6 +6300,11 @@ function menu_on_currency( params )
     self namespace_189fe7075a0930a5::function_91837b02eb37486e( #"salvage", int( params.var_bcfddc715fcfced6 * ( level.zmm_salvage_mult - 1 ) ), #"zmm", undefined );
 }
 
+function menu_is_bullet( mod )
+{
+    return mod == "MOD_RIFLE_BULLET" || mod == "MOD_PISTOL_BULLET" || mod == "MOD_HEAD_SHOT" || mod == "MOD_EXPLOSIVE_BULLET";
+}
+
 // zombie hit (self = zombie): scale the damage as ProjectNexus does; mults are level fields (solo menu)
 function menu_on_zombie_damaged( params )
 {
@@ -5299,6 +6312,12 @@ function menu_on_zombie_damaged( params )
     {
         // Old School: 10 points a hit, wonder weapons kill in one hit
         menu_classic_pay( params.var_917e21c98d80255e, 10, params.var_b575eda3d8d8533b );
+        // shortcut: the second bullet is simulated (damage and points x2, no second tracer or penetration), upgrade if a GSC magic bullet builtin is identified
+        if ( istrue( level.zmm_cl[ "cl_dtap" ] ) && isdefined( params.var_a87b62c261a8d114 ) && menu_is_bullet( params.var_f5a880abf0b199dc ) && utility::issharedfuncdefined( #"loot_perks", #"has_perk" ) && istrue( params.var_917e21c98d80255e utility::callsharedfunc( #"loot_perks", #"has_perk", "specialty_d_mod" ) ) )
+        {
+            params.var_a87b62c261a8d114 = int( min( params.var_a87b62c261a8d114 * 2, 2000000000 ) );
+            menu_classic_pay( params.var_917e21c98d80255e, 10, params.var_b575eda3d8d8533b );
+        }
         if ( istrue( level.zmm_cl[ "cl_ww" ] ) && isdefined( params.var_b575eda3d8d8533b ) &&isdefined( params.var_b575eda3d8d8533b.basename ) && issubstr( params.var_b575eda3d8d8533b.basename, "_ww_" ) )
         {
             params.var_a87b62c261a8d114 = 2000000000;
@@ -5346,6 +6365,8 @@ function menu_reset_mods()
 {
     state = self.zmm;
     state.zombie_cap = 0;
+    state.prof_vals = undefined;
+    menu_zombie_speed( "" );
     level.zmm_mult = undefined;
     if ( isdefined( state.points_mult ) && state.points_mult != 1 )
     {
@@ -5448,6 +6469,12 @@ function menu_perk_name( perk )
         level.zmm_perk_names[ "specialty_mulekick" ] = "Mule Kick";
         level.zmm_perk_names[ "specialty_melee_macchiato" ] = "Melee Macchiato";
         level.zmm_perk_names[ "specialty_tombstone" ] = "Tombstone";
+        level.zmm_perk_names[ "specialty_m_mod" ] = "Melee Macchiato";
+        level.zmm_perk_names[ "specialty_d_mod" ] = "Double Tap";
+        level.zmm_perk_names[ "specialty_z_mod" ] = "Mule Kick";
+        // shortcut: these two names are inferred, not read from a game table; correct them if the in-game can says otherwise
+        level.zmm_perk_names[ "specialty_w_mod" ] = "Wisp Tea";
+        level.zmm_perk_names[ "specialty_y_mod" ] = "Widow's Wine";
     }
     if ( isdefined( level.zmm_perk_names[ perk ] ) )
     {
@@ -5510,6 +6537,13 @@ function menu_box_override( key, on )
         level.zmm_box_on = [];
         level.zmm_box_prev = [];
     }
+    if ( key == "free_perks" || key == "classic" )
+    {
+        level.zmm_box_on[ key ] = on ? 1 : 0;
+        on = istrue( level.zmm_box_on[ "free_perks" ] ) || istrue( level.zmm_box_on[ "classic" ] );
+        key = "perk_cost";
+        func = &menu_perk_classic_cost;
+    }
     if ( on && !istrue( level.zmm_box_on[ key ] ) )
     {
         level.zmm_box_prev[ key ] = level.var_9e5c1a9e0a29d3ce[ group ][ id ];
@@ -5543,11 +6577,6 @@ function menu_perk_classic_cost( usable )
     {
         return undefined;
     }
-    // 4 perks max, one more slot every 20 rounds
-    if ( istrue( level.zmm_cl[ "cl_perk_cap" ] ) && isdefined( level.players[ 0 ] ) && level.players[ 0 ] menu_perk_count() >= 4 + int( menu_current_round() / 20 ) )
-    {
-        return 99999;
-    }
     if ( !istrue( level.zmm_cl[ "cl_prices" ] ) )
     {
         return undefined;
@@ -5574,7 +6603,7 @@ function menu_perk_classic_cost( usable )
 function menu_classic_fizz_loop()
 {
     state = self.zmm;
-    while ( menu_loop_active( "cl_fizz" ) || menu_loop_active( "cl_qr" ) || menu_loop_active( "cl_health" ) )
+    while ( menu_loop_active( "cl_fizz" ) || menu_loop_active( "cl_qr" ) || menu_loop_active( "cl_health" ) || menu_loop_active( "cl_perk_cap" ) )
     {
         state.fizz_near = 0;
         if ( menu_toggle_state( "cl_fizz" ) && isdefined( level.var_2ad433898c7f6057 ) )
@@ -5592,23 +6621,73 @@ function menu_classic_fizz_loop()
         wait 0.25;
     }
     menu_classic_fizz_flag( 0 );
+    // one last pass lifts the perk limit and gives the self revives back
+    menu_classic_tick();
     state.fizz_loop = 0;
 }
 
 function menu_perk_count()
 {
-    self.zmm.perk_count = 0;
+    self.zmm_perk_count = 0;
     if ( utility::issharedfuncdefined( #"loot_perks", #"has_perk" ) )
     {
-        foreach ( perk in [ "specialty_juggernog", "specialty_quickrevive", "specialty_speedcola", "specialty_staminup", "specialty_deadshot", "specialty_elemental_pop", "specialty_death_perception", "specialty_vulture_aid", "specialty_phd_flopper" ] )
+        foreach ( perk in menu_perk_keys() )
         {
             if ( istrue( self utility::callsharedfunc( #"loot_perks", #"has_perk", perk ) ) )
             {
-                self.zmm.perk_count++;
+                self.zmm_perk_count++;
             }
         }
     }
-    return self.zmm.perk_count;
+    return self.zmm_perk_count;
+}
+
+// 4 perks max, one more slot every 20 rounds; the game's own perk switch stops machines and the Wunderfizz alike
+function menu_perk_cap_tick()
+{
+    self.zmm_perk_blocked = istrue( level.zmm_cl[ "cl_perk_cap" ] ) && menu_perk_count() >= 4 + int( menu_current_round() / 20 );
+    if ( self.zmm_perk_blocked != istrue( self.zmm_perk_capped ) )
+    {
+        self.zmm_perk_capped = self.zmm_perk_blocked;
+        self menu_override( "zmm_perk_cap", [ "allow_zm_perks" ], [ 0 ], self.zmm_perk_blocked );
+    }
+}
+
+// no self revive without Quick Revive, one with it: the max fields stop the game's own refill
+function menu_qr_tick()
+{
+    if ( !istrue( level.zmm_cl[ "cl_qr" ] ) )
+    {
+        if ( istrue( self.zmm_qr_on ) )
+        {
+            self.zmm_qr_on = 0;
+            self.var_4877be4da79014b0 = level.var_7ebad24685cd9f8c.var_4292e4b6ecbd86b5;
+            self.var_63cd4b355dddbeba = level.var_7ebad24685cd9f8c.var_c5ebe645f8758bc3;
+        }
+        return;
+    }
+    if ( !istrue( self.zmm_qr_on ) )
+    {
+        self.zmm_qr_on = 1;
+        self.zmm_qr_had = 0;
+        self namespace_b80f99000c537b86::function_39844c1e879cc048( 0 );
+    }
+    if ( !( utility::issharedfuncdefined( #"loot_perks", #"has_perk" ) && istrue( self utility::callsharedfunc( #"loot_perks", #"has_perk", "specialty_quickrevive" ) ) ) )
+    {
+        self.zmm_qr_had = 0;
+        self.var_4877be4da79014b0 = 0;
+        self.var_63cd4b355dddbeba = 0;
+    }
+    else if ( !istrue( self.zmm_qr_had ) )
+    {
+        self.zmm_qr_had = 1;
+        self.var_4877be4da79014b0 = ( self.var_aecc486f34e4dd66 ?? 0 ) + 1;
+        self.var_63cd4b355dddbeba = self.var_4877be4da79014b0;
+        if ( self namespace_b80f99000c537b86::function_7072b516e6cffb7c() < 1 )
+        {
+            self namespace_b80f99000c537b86::function_39844c1e879cc048( 1 );
+        }
+    }
 }
 
 // one Old School part (cl_* key); game-wide, previous values are kept and put back on switch-off
@@ -5623,6 +6702,10 @@ function menu_classic_part( key, on )
     if ( key == "cl_prices" || key == "cl_perk_cap" )
     {
         menu_box_override( "classic", istrue( level.zmm_cl[ "cl_prices" ] ) || istrue( level.zmm_cl[ "cl_perk_cap" ] ) );
+    }
+    else if ( key == "cl_run" )
+    {
+        menu_zombie_speed( on ? "run" : "" );
     }
     else if ( key == "cl_sprinters" && isdefined( level.var_7ebad24685cd9f8c ) )
     {
@@ -5667,7 +6750,7 @@ function menu_classic_part( key, on )
         level.zmm_health_round = undefined;
         setdvar( @"hash_a296d84ecc8ab62a", level.var_7ebad24685cd9f8c.var_6cfc57a4b0d987d ?? 1 );
     }
-    if ( on && ( key == "cl_fizz" || key == "cl_qr" || key == "cl_health" ) && !istrue( state.fizz_loop ) )
+    if ( on && ( key == "cl_fizz" || key == "cl_qr" || key == "cl_health" || key == "cl_perk_cap" ) && !istrue( state.fizz_loop ) )
     {
         state.fizz_loop = 1;
         self thread menu_classic_fizz_loop();
@@ -5738,17 +6821,10 @@ function menu_classic_tick()
         }
         setdvar( @"hash_a296d84ecc8ab62a", state.health_mult );
     }
-    state.has_qr = menu_toggle_state( "cl_qr" ) && utility::issharedfuncdefined( #"loot_perks", #"has_perk" ) &&istrue( self utility::callsharedfunc( #"loot_perks", #"has_perk", "specialty_quickrevive" ) );
-    if ( !state.has_qr )
+    foreach ( player in level.players )
     {
-        state.qr_revive = 0;
-    }
-    else if ( !istrue( state.qr_revive ) )
-    {
-        // one self revive per Quick Revive bought
-        state.qr_revive = 1;
-        // same call the game uses to grant a self revive (sets the real count, the HUD and the down state)
-        self namespace_b80f99000c537b86::function_a2e03a85015b1897( 1, 1 );
+        player menu_perk_cap_tick();
+        player menu_qr_tick();
     }
 }
 
@@ -5980,7 +7056,7 @@ function menu_equip_gum( name, use_now )
         return false;
     }
     self bgb::function_d9c0fbf34ae14706( slot, name, true, false );
-    if ( self.var_b02f6e7abbbc8a84[ slot ] != name )
+    if ( !( self.var_b02f6e7abbbc8a84[ slot ] === name ) )
     {
         return false;
     }
