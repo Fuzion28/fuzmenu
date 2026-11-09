@@ -172,9 +172,9 @@ end
 -- weapon refs (sat_lm_typhon) become the game's localized name, as ProjectNexus does
 local names={}
 local function weaponName(ref)
-    if not ref:match("^sat_[a-z]+_[a-z0-9]+$") then return ref end
+    local name=ref:match("^sat_[a-z]+_([a-z0-9]+)$") or ref:match("^t10_[a-z]+_p%d+_([a-z0-9]+)$")
+    if not name then return ref end
     if names[ref] then return names[ref] end
-    local name=ref:match("^sat_[a-z]+_(.+)$")
     local ok,raw=pcall(invoke,rawget(_G,"WEAPON"),"GetName",ref)
     if ok and raw~=nil then
         local okL,value=pcall(invoke,rawget(_G,"Engine"),"Localize",raw)
