@@ -78,7 +78,7 @@ Max points & scrap, Infinite points, Add points / scrap, Points multiplier x2 to
 - Round timer, Round +1 / +5 / +10 / +100, Round -1 / -5 / -10 / -100
 - Jump to round 1, 10, 25, 50, 100, 255, 500 or 999
 
-## 🏃 Speedrun (in Rounds)
+## 🏃 Speedrun
 - Live timer and splits, personal best saved, the timer starts when you move
 - Split panel on the right side of the screen
 - **Ashes**: Gauntlet, Lockdown end, Keys, Challenges, Veytarion

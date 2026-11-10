@@ -130,6 +130,7 @@ function menu_build_pages()
         [ "Game modes & rules", 2, "XGame" ],
         [ "Fun & chaos", 2, "XFun" ],
         [ "Forge", 2, "Forge" ],
+        [ "Speedrun", 2, "Practice" ],
         [ "Co-op", 9, "coop_list", 0 ],
         [ "Disable all mods", 5, "reset" ],
         [ "Settings", 2, "Settings" ],
@@ -639,7 +640,6 @@ function menu_build_pages()
     ] );
 
     menu_add_page( "Rounds", "ROUNDS", [
-        [ "Speedrun", 2, "Practice" ],
         [ "Type a round number", 10, "ui_type", 0 ],
         [ "Round timer", 4, "round_timer" ],
         [ "Round +1", 6, 1, 1 ],
