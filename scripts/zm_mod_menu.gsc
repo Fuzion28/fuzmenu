@@ -47,6 +47,9 @@
 #namespace zm_mod_menu;
 
 // Kinds: 0 close, 1 back, 2 submenu, 4 toggle, 5 action, 6 round, 7 powerup, 8 give weapon, 9 action with a value.
+// 10 extension action [ label, 10, module, value ]: self thread [[ level.zmm_ext[ module ] ]]( value )
+// 11 extension toggle, same call; the +/- mark comes from [[ level.zmm_ext_on[ module ] ]]( value )
+// Extension files (zm_mod_menu_*.gsc) wait for level.zmm_add_page, then add their pages with it.
 
 autoexec init()
 {
@@ -74,6 +77,7 @@ autoexec init()
     setdvar( @"zmm_recoil", "" );
     setdvar( @"zmm_hud", "" );
     setdvar( @"zmm_big", "" );
+    setdvar( @"zmm_logo", "" );
     setdvar( @"hash_3c05d1d16d772c9e", -1 );
     setdvar( @"hash_8054c9327575fd95", 0 );
     // the Lua can only write dvars that already exist
@@ -86,6 +90,14 @@ autoexec init()
     // Old School parts that are on, read by the game-wide hooks
     level.zmm_cl = [];
     menu_build_pages();
+    level.zmm_add_page = &menu_add_page;
+    // shared helpers for the extension files (they cannot #using this script)
+    level.zmm_notify_fn = &menu_notify;
+    level.zmm_jump_round_fn = &menu_jump_round;
+    level.zmm_round_fn = &menu_current_round;
+    level.zmm_is_host_fn = &menu_is_host;
+    level.zmm_teleport_fn = &menu_do_teleport;
+    level.zmm_nav_point_fn = &menu_nav_point;
     level callback::add( #"player_spawned", &menu_on_spawned );
     level callback::add( #"player_death", &menu_on_death );
     level callback::add( #"player_disconnect", &menu_on_disconnect );
@@ -113,11 +125,11 @@ function menu_build_pages()
         [ "Points & scrap", 2, "Money" ],
         [ "Zombies", 2, "Zombies" ],
         [ "Rounds", 2, "Rounds" ],
-        [ "Speedrun", 2, "Practice" ],
         [ "Bonus", 2, "Powerups" ],
         [ "World", 2, "World" ],
+        [ "Game modes & rules", 2, "XGame" ],
+        [ "Fun & chaos", 2, "XFun" ],
         [ "Forge", 2, "Forge" ],
-        [ "Old School Zombies", 2, "OldSchool" ],
         [ "Co-op", 9, "coop_list", 0 ],
         [ "Disable all mods", 5, "reset" ],
         [ "Settings", 2, "Settings" ],
@@ -145,8 +157,6 @@ function menu_build_pages()
         [ "Noclip (same as N key)", 5, "noclip" ],
         [ "Cinematic mode", 4, "cinema" ],
         [ "Zombies ignore me", 4, "ignoreme" ],
-        [ "Infinite points", 4, "inf_points" ],
-        [ "Free purchases", 4, "free_buy" ],
         [ "Speed x1.6", 4, "speed" ],
         [ "No fall damage", 4, "no_fall" ],
         [ "No explosive self-damage", 4, "no_self_explo" ],
@@ -155,6 +165,7 @@ function menu_build_pages()
         [ "Infinite tactical sprint", 4, "tacsprint" ],
         [ "Jump height", 2, "Jump" ],
         [ "Gravity", 2, "Gravity" ],
+        [ "Field of view", 2, "Fov" ],
         [ "Armor", 2, "Armor" ],
         [ "Back", 1, "" ]
     ] );
@@ -178,18 +189,23 @@ function menu_build_pages()
         [ "Back", 1, "" ]
     ] );
 
+    // console cg_fov 110 + cg_fovscale 1.3 (the game settings stop at 120)
+    menu_add_page( "Fov", "FIELD OF VIEW", [
+        [ "FOV +", 9, "fov", 1 ],
+        [ "Default FOV", 9, "fov", 0 ],
+        [ "Back", 1, "" ]
+    ] );
+
     menu_add_page( "Teleports", "TELEPORTS", [
         [ "Map locations", 9, "map_list", 0 ],
-        [ "Save position", 5, "save_point" ],
-        [ "Load position", 5, "load_point" ],
         [ "Return to spawn", 5, "spawn_point" ],
         [ "Unstuck", 5, "unstuck" ],
+        [ "Saved spots", 2, "XSpots" ],
         [ "Back", 1, "" ]
     ] );
 
     menu_add_page( "Perks", "PERKS", [
         [ "All perks", 5, "give_perks" ],
-        [ "Eternal perks", 5, "eternal_perks" ],
         [ "Remove all perks", 5, "revoke_perks" ],
         [ "Pick a perk", 9, "perk_list", "perk" ],
         [ "Free perks", 4, "free_perks" ],
@@ -223,9 +239,19 @@ function menu_build_pages()
         [ "Pack-a-Punch", 2, "Pap" ],
         [ "Weapon rarity", 2, "Rarity" ],
         [ "Auto Ultra + PAP 4", 4, "firepower" ],
+        [ "Camos", 2, "WeapCamo" ],
+        [ "Builds", 2, "WeapBuild" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "WeapCamo", "CAMOS", [
         [ "Random camo", 5, "random_camo" ],
         [ "Next camo", 5, "camo_next" ],
         [ "Previous camo", 5, "camo_prev" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "WeapBuild", "BUILDS", [
         [ "Save a build", 2, "BuildSave" ],
         [ "Load a build", 2, "BuildLoad" ],
         [ "Back", 1, "" ]
@@ -275,6 +301,9 @@ function menu_build_pages()
         [ "Launchers", 2, "W_la" ],
         [ "Melee", 2, "W_me" ],
         [ "BO6 weapons", 2, "W_bo6" ],
+        [ "New weapons", 2, "ArsNew" ],
+        [ "Scorestreak weapons", 2, "ArsStreak" ],
+        [ "Dead Ops Arcade guns", 2, "ArsDoa" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -411,6 +440,7 @@ function menu_build_pages()
 
     menu_add_page( "Money", "POINTS & SCRAP", [
         [ "Max points & scrap", 5, "fill_currency" ],
+        [ "Infinite points", 4, "inf_points" ],
         [ "Points", 2, "Points" ],
         [ "Scrap", 2, "Salvage" ],
         [ "Points multiplier", 2, "PointsMult" ],
@@ -519,7 +549,9 @@ function menu_build_pages()
         [ "Add a spawn point", 5, "spawn_pt_set" ],
         [ "Spawn at placed point", 4, "spawn_pt" ],
         [ "Clear spawn points", 5, "spawn_pt_clear" ],
-        [ "Navmesh test here", 5, "nav_test" ],
+        [ "Can zombies reach here?", 5, "nav_test" ],
+        [ "Custom waves", 2, "ArsWave" ],
+        [ "Detected types", 2, "ArsDetect" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -607,6 +639,8 @@ function menu_build_pages()
     ] );
 
     menu_add_page( "Rounds", "ROUNDS", [
+        [ "Speedrun", 2, "Practice" ],
+        [ "Type a round number", 10, "ui_type", 0 ],
         [ "Round timer", 4, "round_timer" ],
         [ "Round +1", 6, 1, 1 ],
         [ "Round +5", 6, 5, 1 ],
@@ -639,6 +673,8 @@ function menu_build_pages()
         [ "Permanent fire sale", 4, "fire_sale_loop" ],
         [ "Nuke", 7, "nuke" ],
         [ "Bonus points", 7, "bonus_points_team" ],
+        [ "Power-up rain", 10, "fun_chaos", "rain" ],
+        [ "Power-up circle", 10, "fun_chaos", "circle" ],
         [ "Power-up duration", 2, "PowerupTime" ],
         [ "Back", 1, "" ]
     ] );
@@ -742,6 +778,7 @@ function menu_build_pages()
         [ "Menu color", 5, "theme" ],
         [ "Menu on the right", 4, "menu_right" ],
         [ "Text mode (no HUD)", 4, "text_mode" ],
+        [ "Start logo", 4, "start_logo" ],
         [ "Profiles", 2, "Profiles" ],
         [ "Back", 1, "" ]
     ] );
@@ -919,12 +956,14 @@ function menu_on_spawned( params )
     state.depth = 0;
     state.toggles = [];
     state.toggles[ "menu_right" ] = 1;
+    // Settings > Start logo, remembered across matches in kronos/fuzmenu/settings.json
+    nengine_store_load( "fuzmenu", "settings" );
+    state.toggles[ "start_logo" ] = nengine_store_get( "fuzmenu", "logo" ) === "0" ? 0 : 1;
     state.equip_loop = 0;
     state.upgrade_loop = 0;
     state.god_loop = 0;
     state.hornet_loop = 0;
     state.points_loop = 0;
-    state.has_save = 0;
     state.theme = 0;
     state.lua = 0;
     state.nav_open = getdvar( @"zmm_open" );
@@ -1226,6 +1265,13 @@ function menu_confirm()
     {
         self thread menu_param( entry[ 0 ], entry[ 2 ], entry[ 3 ] );
     }
+    else if ( kind == 10 || kind == 11 )
+    {
+        if ( isdefined( level.zmm_ext ) && isdefined( level.zmm_ext[ entry[ 2 ] ] ) )
+        {
+            self thread [[ level.zmm_ext[ entry[ 2 ] ] ]]( entry[ 3 ] );
+        }
+    }
 }
 
 function menu_notify( label, ok )
@@ -1382,6 +1428,11 @@ function menu_welcome()
     {
         return;
     }
+    if ( menu_is_host() && menu_toggle_state( "start_logo" ) )
+    {
+        // zm_mod_menu_post.lua shows images/fuzmenu_logo.png once when this turns "1"
+        setdvar( @"zmm_logo", "1" );
+    }
     hint = level.zmm_hint;
     if ( isdefined( level.zmm_hud_splash ) )
     {
@@ -1390,7 +1441,11 @@ function menu_welcome()
     }
     else
     {
-        self iprintlnbold( "^5" + level.zmm_name );
+        // the start logo already shows the name
+        if ( !( menu_is_host() && menu_toggle_state( "start_logo" ) ) )
+        {
+            self iprintlnbold( "^5" + level.zmm_name );
+        }
         self iprintln( hint );
     }
 }
@@ -1463,6 +1518,11 @@ function menu_render()
             rows += menu_view_row( page.items[ state.top + n ] ) + "|";
         }
         right = menu_toggle_state( "menu_right" ) ? "1" : "0";
+        // extension hook (weapon picture next to the menu): selected row and its line on screen
+        if ( isdefined( level.zmm_on_render ) )
+        {
+            self [[ level.zmm_on_render ]]( page.items[ state.cursor ], state.cursor - state.top );
+        }
         setdvar( @"zmm_view", "ZMM|" + state.theme + "|" + right + "|" + page.title + "|" + ( state.cursor - state.top ) + "|" + n + "|" + ( state.cursor + 1 ) + "/" + count + "|" + rows + "END" );
         return;
     }
@@ -1496,6 +1556,10 @@ function menu_view_row( entry )
     if ( entry[ 1 ] == 4 )
     {
         return ( menu_toggle_state( entry[ 2 ] ) ? "+" : "-" ) + entry[ 0 ];
+    }
+    if ( entry[ 1 ] == 11 && isdefined( level.zmm_ext_on ) && isdefined( level.zmm_ext_on[ entry[ 2 ] ] ) )
+    {
+        return ( self [[ level.zmm_ext_on[ entry[ 2 ] ] ]]( entry[ 3 ] ) ? "+" : "-" ) + entry[ 0 ];
     }
     return " " + entry[ 0 ];
 }
@@ -1597,6 +1661,13 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
+    if ( key == "start_logo" )
+    {
+        nengine_store_load( "fuzmenu", "settings" );
+        nengine_store_set( "fuzmenu", "logo", on ? "1" : "0" );
+        nengine_store_save( "fuzmenu", "settings" );
+        return true;
+    }
     if ( key == "extra_ammo" )
     {
         self setinfiniteammo( on || menu_toggle_state( "firepower" ) );
@@ -1673,7 +1744,7 @@ function menu_apply_toggle( key )
     if ( key == "god_all" )
     {
         // one switch for the cheat toggles
-        foreach ( sub in [ "god_mode", "extra_ammo", "inf_points", "free_buy", "no_recoil", "aimbot", "wallhack", "rapid_fire", "equip_inf", "upgrade_inf", "no_fall", "no_self_explo", "tacsprint", "firepower", "speed" ] )
+        foreach ( sub in [ "god_mode", "extra_ammo", "inf_points", "no_recoil", "aimbot", "wallhack", "rapid_fire", "equip_inf", "upgrade_inf", "no_fall", "no_self_explo", "tacsprint", "firepower", "speed" ] )
         {
             state.toggles[ sub ] = on ? 1 : 0;
             menu_apply_toggle( sub );
@@ -1780,15 +1851,6 @@ function menu_apply_toggle( key )
     if ( key == "free_box" || key == "fast_box" || key == "free_perks" || key == "free_ammo" )
     {
         return menu_box_override( key, on );
-    }
-    if ( key == "free_buy" )
-    {
-        if ( on && !istrue( state.free_buy_loop ) )
-        {
-            state.free_buy_loop = 1;
-            self thread menu_free_buy_loop();
-        }
-        return true;
     }
     if ( key == "fire_sale_loop" )
     {
@@ -2081,7 +2143,7 @@ function menu_sr_setup()
         // fixed splits, in quest order
         sr.mq = #"hash_c863b996e7e1593c";
         sr.ww = "sat_ww_mantis_zm";
-        sr.names = [ "Chalk", "Wonder Weapon Upgraded", "Symbols", "Soulbox", "Boss enter", "End" ];
+        sr.names = [ "Chalk", "Sundergat", "Symbols", "Soulbox", "Boss enter", "End" ];
         sr.flags = [ "chalk_picked_up", "wwu_weapon_retrieved", "music_notes_puzzle_completed", "sheet_music_delivered", "start_boss_fight", "boss_fight_done" ];
         sr.jumps = [ #"hash_e648d162912a28d7", #"hash_7958efe97a9d29af", #"hash_e6cfb931cb2b8e3e", #"prepare_final_fight" ];
         sr.lo = [ [ 0, 0, 0, 0, 0 ], [ 9, 1, 2, 0, 7 ], [ 13, 2, 2, 5000, 7 ], [ 15, 2, 2, 10000, 7 ], [ 17, 3, 2, 15000, 7 ], [ 17, 3, 2, 15000, 7 ] ];
@@ -2447,6 +2509,8 @@ function zmsplit_bridge()
     st.nm_sent = "";
     st.pb_sent = "";
     st.bt_sent = "";
+    st.frame = 0;
+    st.chg_sent = "";
 
     setdvar( "zm_tms", 0 );
     setdvar( "zm_sr", 2 );
@@ -2475,52 +2539,63 @@ function zmsplit_bridge()
                 setdvar( "zm_srmap", sr.map );
                 setdvar( "zm_sr", 1 );
             }
-            // names and PB are re-sent when they change (a new PB replaces the old)
-            st.nm = zmsplit_join( sr.names, "|" );
-            if ( st.nm != st.nm_sent )
+            // the strings are rebuilt on a split or practice change, and twice a second for name or PB swaps
+            st.frame++;
+            st.chg = "" + sr.index + "_" + sr.practice;
+            if ( isdefined( sr.seg ) )
             {
-                st.nm_sent = st.nm;
-                setdvar( "zm_srnames", st.nm );
+                st.chg = st.chg + "s";
             }
-            st.pbs = zmsplit_join( sr.pb, "," );
-            if ( st.pbs != st.pb_sent )
+            if ( st.chg != st.chg_sent || st.frame % 10 == 0 )
             {
-                st.pb_sent = st.pbs;
-                setdvar( "zm_srpb", st.pbs );
-            }
-            st.key = "" + sr.index;
-            st.times = zmsplit_join( sr.times, "," );
-            setdvar( "zm_srp", 0 );
-            if ( sr.practice > 0 )
-            {
-                setdvar( "zm_srp", 1 );
-                st.times = zmsplit_practice_times( sr );
-                st.has = 0;
-                if ( isdefined( sr.seg ) )
+                st.chg_sent = st.chg;
+                // names and PB are re-sent when they change (a new PB replaces the old)
+                st.nm = zmsplit_join( sr.names, "|" );
+                if ( st.nm != st.nm_sent )
                 {
-                    st.has = 1;
+                    st.nm_sent = st.nm;
+                    setdvar( "zm_srnames", st.nm );
                 }
-                st.key = "p" + sr.practice + "_" + st.has;
-            }
-            else
-            {
-                // best segments (not while practising: those times are single segments of a partial run)
-                if ( !isdefined( st.bkey ) || st.bkey != zmsplit_best_key( sr ) )
+                st.pbs = zmsplit_join( sr.pb, "," );
+                if ( st.pbs != st.pb_sent )
                 {
-                    zmsplit_best_load( sr, st );
+                    st.pb_sent = st.pbs;
+                    setdvar( "zm_srpb", st.pbs );
                 }
-                zmsplit_best_update( sr, st );
-                st.bt = zmsplit_best_text( sr, st );
-                if ( st.bt != st.bt_sent )
+                st.key = "" + sr.index;
+                st.times = zmsplit_join( sr.times, "," );
+                setdvar( "zm_srp", 0 );
+                if ( sr.practice > 0 )
                 {
-                    st.bt_sent = st.bt;
-                    setdvar( "zm_srbest", st.bt );
+                    setdvar( "zm_srp", 1 );
+                    st.times = zmsplit_practice_times( sr );
+                    st.has = 0;
+                    if ( isdefined( sr.seg ) )
+                    {
+                        st.has = 1;
+                    }
+                    st.key = "p" + sr.practice + "_" + st.has;
                 }
-            }
-            if ( st.key != st.sent )
-            {
-                st.sent = st.key;
-                setdvar( "zm_srt", st.times );
+                else
+                {
+                    // best segments (not while practising: those times are single segments of a partial run)
+                    if ( !isdefined( st.bkey ) || st.bkey != zmsplit_best_key( sr ) )
+                    {
+                        zmsplit_best_load( sr, st );
+                    }
+                    zmsplit_best_update( sr, st );
+                    st.bt = zmsplit_best_text( sr, st );
+                    if ( st.bt != st.bt_sent )
+                    {
+                        st.bt_sent = st.bt;
+                        setdvar( "zm_srbest", st.bt );
+                    }
+                }
+                if ( st.key != st.sent )
+                {
+                    st.sent = st.key;
+                    setdvar( "zm_srt", st.times );
+                }
             }
             if ( !isdefined( sr.start ) )
             {
@@ -4569,29 +4644,6 @@ function menu_fire_sale_loop()
     }
 }
 
-// shortcut: refunds any point loss (not only purchases); a real price hook needs the BO7 scripts
-function menu_free_buy_loop()
-{
-    last = self points::function_8f0a9502ff7321a();
-    while ( menu_loop_active( "free_buy" ) )
-    {
-        current = self points::function_8f0a9502ff7321a();
-        if ( isdefined( last ) && isdefined( current ) && current < last )
-        {
-            self points::function_40dc4b206b63ac2e( last );
-        }
-        else
-        {
-            last = current;
-        }
-        waitframe();
-    }
-    if ( isdefined( self ) && isdefined( self.zmm ) )
-    {
-        self.zmm.free_buy_loop = 0;
-    }
-}
-
 function menu_apply_god( on )
 {
     if ( on )
@@ -4834,14 +4886,6 @@ function menu_action( action_id )
     {
         self thread menu_camo( action_id, -1 );
     }
-    else if ( action_id == "save_point" )
-    {
-        menu_save_point();
-    }
-    else if ( action_id == "load_point" )
-    {
-        menu_load_point();
-    }
     else if ( action_id == "spawn_point" )
     {
         menu_teleport_action( action_id, self.zmm.spawn_origin, self.zmm.spawn_angles );
@@ -4909,10 +4953,6 @@ function menu_action( action_id )
             self.health = self.maxhealth;
         }
         menu_tip_action( action_id, ok );
-    }
-    else if ( action_id == "eternal_perks" )
-    {
-        menu_tip_action( action_id, menu_eternal_perks() );
     }
     else if ( action_id == "revoke_perks" )
     {
@@ -5048,27 +5088,6 @@ function menu_full_revive()
     }
     self.game_extrainfo = self.game_extrainfo | 2048;
     menu_tip_action( "full_revive", 1 );
-}
-
-function menu_save_point()
-{
-    state = self.zmm;
-    state.save_origin = self.origin;
-    state.save_angles = self getplayerangles();
-    state.has_save = 1;
-    menu_tip_action( "save_point", 1 );
-}
-
-function menu_load_point()
-{
-    state = self.zmm;
-    if ( !istrue( state.has_save ) || !utility::issharedfuncdefined( #"zm_utility", #"teleport_player" ) )
-    {
-        menu_tip_action( "load_point", 0 );
-        return;
-    }
-    self thread menu_do_teleport( state.save_origin, state.save_angles );
-    menu_tip_action( "load_point", 1 );
 }
 
 function menu_teleport_action( action_id, origin, angles )
@@ -5545,7 +5564,18 @@ function menu_wonder_worker( label, name )
         menu_notify( label, menu_give_wonder( "sat_ww_mantis_zm" ) );
         return;
     }
-    menu_notify( label, menu_give_wonder( name ) );
+    self.zmm.gun_loaded = 1;
+    if ( menu_give_wonder( name ) )
+    {
+        menu_notify( label, 1 );
+        return;
+    }
+    if ( !self.zmm.gun_loaded )
+    {
+        self iprintln( label + " ^1not loaded on this map (put it in a loadout)" );
+        return;
+    }
+    menu_notify( label, 0 );
 }
 
 function menu_build_wonder( weapon_name )
@@ -5598,13 +5628,20 @@ function menu_give_wonder( name )
     }
 
     self loadweaponsforplayer( [ w_new ], 1 );
-    for ( i = 0; i < 30; i++ )
+    self.zmm.gun_loaded = 0;
+    for ( i = 0; i < 100; i++ )
     {
         if ( self hasloadedviewweapons( [ w_new ] ) )
         {
+            self.zmm.gun_loaded = 1;
             break;
         }
         wait 0.1;
+    }
+    // BO6 guns whose models never load would be given empty (no model, cannot be pulled out)
+    if ( !self.zmm.gun_loaded && issubstr( weapon_name, "t10_" ) )
+    {
+        return false;
     }
 
     // melee wonder weapons (Jotunn Star) go to the melee slot like the boss drop, not a gun slot
@@ -6171,6 +6208,34 @@ function menu_param( label, action, value )
     {
         ok = menu_ammo_mod( value );
     }
+    else if ( action == "fov" )
+    {
+        // runs on the host's console like noclip (a cg_fovscale set from Lua did not take)
+        ok = menu_is_host();
+        if ( ok )
+        {
+            // the default values the game had before (cg_fov 65, cg_fovscale 1)
+            self.zmm.fov_a = "65";
+            self.zmm.fov_b = "1";
+            self.zmm.fov_txt = "default";
+            if ( value )
+            {
+                self.zmm.fov_a = "110";
+                self.zmm.fov_b = "1.3";
+                self.zmm.fov_txt = "+";
+            }
+            // set from GSC, and also through the console (zmm_exec runs one command per value)
+            setdvar( @"cg_fov", self.zmm.fov_a );
+            setdvar( @"cg_fovscale", self.zmm.fov_b );
+            setdvar( @"zmm_exec", "cg_fov " + self.zmm.fov_a + " " + gettime() );
+            wait 0.25;
+            setdvar( @"zmm_exec", "cg_fovscale " + self.zmm.fov_b + " " + gettime() );
+            wait 0.25;
+            // readback: shows whether the game kept the values
+            self iprintln( "FOV ^3" + self.zmm.fov_txt + " ^7cg_fov " + getdvar( @"cg_fov" ) + " cg_fovscale " + getdvar( @"cg_fovscale" ) );
+            return;
+        }
+    }
     else if ( action == "jump" || action == "gravity" )
     {
         menu_move_option( action, value );
@@ -6345,7 +6410,7 @@ function menu_prof_save( slot )
     str = "x";
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key != "menu_right" && key != "text_mode" && menu_toggle_state( key ) )
+        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && menu_toggle_state( key ) )
         {
             str = str + "," + key;
         }
@@ -6645,7 +6710,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in getarraykeys( state.toggles ) )
     {
-        if ( key == "menu_right" || key == "text_mode" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || !istrue( state.toggles[ key ] ) )
         {
             continue;
         }
@@ -7195,34 +7260,6 @@ function menu_grant_perk( perk )
         waitframe();
     }
     return self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk );
-}
-
-function menu_eternal_perks()
-{
-    keys = menu_perk_keys();
-    if ( keys.size == 0 )
-    {
-        return false;
-    }
-    missing = 0;
-    foreach ( perk in keys )
-    {
-        if ( !isalive( self ) || !menu_grant_perk( perk ) )
-        {
-            missing++;
-            continue;
-        }
-        if ( !self namespace_377106c4017f7cda::function_b8960d650787a048( perk ) )
-        {
-            self namespace_377106c4017f7cda::function_3c5c75cec72d90aa( perk );
-            waitframe();
-        }
-        if ( !self namespace_377106c4017f7cda::function_b8960d650787a048( perk ) )
-        {
-            missing++;
-        }
-    }
-    return missing == 0;
 }
 
 function menu_revoke_perks()

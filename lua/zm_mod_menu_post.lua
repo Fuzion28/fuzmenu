@@ -32,7 +32,8 @@ local ICONS={["Joueur"]="player",["Player"]="player",["OP Mode"]="op",["Teleport
     ["Ameliorer"]="upgrade",["Upgrade"]="upgrade",["Atouts"]="perks",["Perks"]="perks",["Gobblegums"]="gums",
     ["Points & scrap"]="money",["Zombies"]="zombies",["Manches"]="rounds",["Rounds"]="rounds",["Bonus"]="powerups",
     ["Speedrun"]="rounds",["Monde"]="world",["World"]="world",["Forge"]="forge",["Old School Zombies"]="oldschool",
-    ["Parametres"]="settings",["Settings"]="settings",["Fermer"]="close",["Close"]="close"}
+    ["Parametres"]="settings",["Settings"]="settings",["Fermer"]="close",["Close"]="close",
+    ["Game modes & rules"]="rounds",["Fun & chaos"]="powerups"}
 
 local function plainIndex(object,key) return object[key] end
 local function hashedIndex(object,key) return object[H(key)] end
@@ -138,6 +139,23 @@ local function displayParent()
     return parentFor(invoke(get(rawget(_G,"LUI"),"UIRoot"),"GetRootForControllerIndex",0))
 end
 
+-- weapon picture box beside the panel (zm_mod_menu_ui.gsc writes zmm_pic = "line|ref|label")
+-- weapon pictures: images/fuzmenu_w_<class>_<name>.png
+local BW,BH=240,52
+local PIC_H=150
+local GUN_PICS={}
+for n in ("ar_albatross ar_condor ar_eagle ar_egret ar_emu ar_falcon ar_hawk ar_heron ar_kite ar_kiwi ar_macaw ar_vulture ar_wren dm_kara dm_oman dm_samar dm_scotia dm_solomon la_fang la_polis lm_hades lm_hildr lm_typhon lm_zeus me_ballisticknife me_castor me_knife me_maru me_nashira me_saiph me_shockbaton me_wasat pi_alcor pi_atlas pi_orion pi_timir sh_akita sh_corso sh_husky sh_shepherd sm_bear sm_bengal sm_civet sm_cobra sm_gecko sm_hyena sm_komodo sm_marmot sm_orca sm_otter sm_puma sm_serval sm_zebra sn_aden sn_baltic sn_caspian sn_coral sn_drake ww_firefly ww_hornet ww_locust ww_mantis ww_raygun ww_raygunmark2 ww_ruby ww_scarab ar_finch sm_mammoth sm_stoat sh_terrier dm_tasman ww_sundergat"):gmatch("%S+") do GUN_PICS[n]=true end
+local function buildPic(frame)
+    local box=newElement("UIElement")
+    call(box,"SetAlpha",0);passive(box);call(frame,"addElement",box)
+    S.pic=box;S.picKey=nil;S.picOn=false
+    S.picBack=rectangle(box,0,0,BW,BH,PANEL,.94)
+    S.picEdge=rectangle(box,0,0,4,BH,THEMES[1],1)
+    S.picLine=rectangle(box,4,BH-2,BW-4,2,THEMES[1],.5)
+    S.picImage=rectangle(box,16,8,BW-28,(BW-28)/2,0xffffff,0)
+    S.picName=label(box,16,16,BW-28,20,16,0xffffff,true)
+end
+
 local function build(parent)
     clear()
     local frame=newElement("UIElement")
@@ -167,6 +185,7 @@ local function build(parent)
     S.footer=label(frame,20,0,W-40,18,13,DIM)
     S.footer2=label(frame,20,0,W-40,18,13,DIM)
     S.pad=nil
+    pcall(buildPic,frame)
 end
 
 -- weapon refs (sat_lm_typhon) become the game's localized name, as ProjectNexus does
@@ -178,10 +197,104 @@ local function weaponName(ref)
     local ok,raw=pcall(invoke,rawget(_G,"WEAPON"),"GetName",ref)
     if ok and raw~=nil then
         local okL,value=pcall(invoke,rawget(_G,"Engine"),"Localize",raw)
-        if okL and type(value)=="string" and value~="" and value~=ref and not value:match("^#x") then name=value
-        elseif type(raw)=="string" and raw~="" and raw~=ref and not raw:match("^#x") then name=raw end
+        if okL and type(value)=="string" and value~="" and value~=ref and not value:match("^#x") and not value:lower():match("^undefined") then name=value
+        elseif type(raw)=="string" and raw~="" and raw~=ref and not raw:match("^#x") and not raw:lower():match("^undefined") then name=raw end
     end
     names[ref]=name;return name
+end
+
+local function showPic(value)
+    if not S.pic or value==S.picKey then return end
+    S.picKey=value
+    local line,ref,name=value:match("^(%d+)|([^|]*)|(.*)$")
+    if not line then
+        if S.picOn then call(S.pic,"SetAlpha",0,80) end
+        S.picOn=false;return
+    end
+    local accent=S.theme or THEMES[1]
+    local key=ref:match("^sat_([a-z]+_[a-z0-9]+)_[mz][pm]$") or ref:match("^sat_([a-z]+_[a-z0-9]+)$") or (ref=="sundergat" and "ww_sundergat")
+    local mat=key and GUN_PICS[key] and material("fuzmenu_w_"..key)
+    local h=mat and PIC_H or BH
+    local x=S.right and -BW-12 or W+12
+    local y=math.max(0,ROWS_TOP+tonumber(line)*ROW+ROW/2-h/2)
+    if S.picOn and S.picSide==S.right and S.picH==h then place(S.pic,x,y,BW,h,90) else place(S.pic,x,y,BW,h) end
+    S.picSide,S.picH=S.right,h
+    place(S.picBack,0,0,BW,h);place(S.picEdge,0,0,4,h);place(S.picLine,4,h-2,BW-4,2)
+    call(S.picEdge,"SetRGB",accent);call(S.picLine,"SetRGB",accent)
+    call(S.picName,"setText",(weaponName((name:gsub("%^%d","")))))
+    place(S.picName,16,h-36,BW-28,20)
+    if mat then call(S.picImage,"setImage",mat) end
+    call(S.picImage,"SetAlpha",mat and 1 or 0)
+    if not S.picOn then call(S.pic,"SetAlpha",1,120) end
+    S.picOn=true
+end
+
+-- boss health bar from zmm_boss = "Name|pct" (map boss scan)
+local BOSS_W=460
+local function bossBar(value,paused)
+    local name,pct=value:match("^(.-)|(%d+)$")
+    if paused or not name then
+        if S.boss then pcall(call,S.boss,"closeTree") end
+        S.boss=nil;S.bossText=nil;return
+    end
+    local parent=displayParent()
+    if not parent then return end
+    if not S.boss or S.bossParent~=parent then
+        if S.boss then pcall(call,S.boss,"closeTree") end
+        local bar=newElement("UIElement")
+        call(bar,"setPriority",1000);passive(bar);call(parent,"addElement",bar)
+        call(bar,"SetAnchorsAndPosition",.5,.5,0,1,-BOSS_W/2,BOSS_W/2,62,110)
+        rectangle(bar,0,0,BOSS_W,48,PANEL,.88)
+        rectangle(bar,0,0,BOSS_W,2,0xe0402a,1)
+        S.bossName=label(bar,14,7,BOSS_W-100,18,16,0xffffff,true)
+        S.bossPct=label(bar,BOSS_W-70,7,56,18,16,0xe0402a,true)
+        rectangle(bar,14,31,BOSS_W-28,8,0x2a2c30,1)
+        S.bossFill=rectangle(bar,14,31,BOSS_W-28,8,0xe0402a,1)
+        -- quarter notches over the fill
+        for i=1,3 do rectangle(bar,14+math.floor((BOSS_W-28)*i/4),31,2,8,PANEL,1) end
+        call(bar,"SetAlpha",1)
+        S.boss=bar;S.bossParent=parent;S.bossText=nil
+    end
+    if value==S.bossText then return end
+    S.bossText=value
+    local p=math.max(0,math.min(100,tonumber(pct) or 0))
+    call(S.bossName,"setText",name~="" and name or "Boss")
+    call(S.bossPct,"setText",p.."%")
+    place(S.bossFill,14,31,math.max(1,math.floor((BOSS_W-28)*p/100)),8)
+end
+
+-- round number prompt while zmm_type is "1"; keys are read in the QueueInput wrapper below
+local function typePrompt(on,paused)
+    if not on or paused then
+        if S.typeBox then pcall(call,S.typeBox,"closeTree") end
+        S.typeBox=nil;return
+    end
+    local parent=displayParent()
+    if not parent or (S.typeBox and S.typeParent==parent) then return end
+    if S.typeBox then pcall(call,S.typeBox,"closeTree") end
+    local box=newElement("UIElement")
+    call(box,"setPriority",1001);passive(box);call(parent,"addElement",box)
+    call(box,"SetAnchorsAndPosition",.5,.5,.5,.5,-190,190,40,124)
+    rectangle(box,0,0,380,84,PANEL,.95)
+    rectangle(box,0,82,380,2,S.theme or THEMES[1],1)
+    call(label(box,16,10,348,16,13,DIM),"setText","JUMP TO ROUND")
+    S.typeText=label(box,16,28,348,30,26,0xffffff,true)
+    call(label(box,16,62,348,16,12,DIM),"setText","272 = that round    +5 / -5 = from now    Enter / Esc")
+    call(box,"SetAlpha",1)
+    S.typeBox=box;S.typeParent=parent
+    call(S.typeText,"setText",(S.typeBuf or "").."_")
+end
+local function typeInput(t)
+    local buf=S.typeBuf or ""
+    if t=="ok" or t=="x" then
+        S.typeSent=true
+        pcall(invoke,rawget(_G,"Dvar"),"SetDvarString",HD("zmm_typed"),t=="ok" and "ok|"..buf or "x")
+        return
+    elseif t=="bs" then buf=buf:sub(1,-2)
+    elseif t=="+" or t=="-" then if buf=="" then buf=t end
+    elseif #buf<5 then buf=buf..t end
+    S.typeBuf=buf
+    if S.typeText then call(S.typeText,"setText",buf.."_") end
 end
 
 -- shortcut: controller labels assume the default layout (Xbox names), upgrade if the game exposes the player's binds to Lua
@@ -201,6 +314,7 @@ end
 local function render(f,n)
     local theme=THEMES[(tonumber(f[2]) or 0)+1] or THEMES[1]
     local cursor=math.max(0,math.min(n-1,tonumber(f[5]) or 0))
+    S.theme,S.right=theme,f[3]=="1"
     local fy=ROWS_TOP+n*ROW+10
     local h=fy+62
     -- top edge stays put when the page length changes
@@ -246,11 +360,32 @@ local function render(f,n)
     S.visible=true
 end
 
+-- start logo: the GSC sets zmm_logo to "1" once the host walks after the intro (Settings > Start logo)
+-- fades in, stays about 3 s (ticks are ~16 ms), fades out; once per match
+local function startLogo()
+    if not S.logoAt then
+        if read("zmm_logo")~="1" then return end
+        local parent,mat=displayParent(),material("fuzmenu_logo")
+        if not parent or not mat then return end
+        S.logo=newElement("UIElement")
+        call(S.logo,"setPriority",1001);passive(S.logo);call(parent,"addElement",S.logo)
+        call(S.logo,"SetAnchorsAndPosition",.5,.5,.5,.5,-256,256,-470,-214)
+        call(rectangle(S.logo,0,0,512,256,0xffffff,1),"setImage",mat)
+        call(S.logo,"SetAlpha",0);call(S.logo,"SetAlpha",1,500)
+        S.logoAt=S.ticks
+    elseif S.logo and S.ticks-S.logoAt>250 then
+        pcall(call,S.logo,"closeTree");S.logo=nil
+    elseif S.logo and S.ticks-S.logoAt>190 and not S.logoOut then
+        call(S.logo,"SetAlpha",0,600);S.logoOut=true
+    end
+end
+
 local function tick()
     S.ticks=S.ticks+1
     -- the GSC writes dvars every 50 ms at most: a third of the rate while closed; %3==1 keeps the %30==1 zmm_lua beat below
     if not S.visible and S.ticks%3~=1 then return end
-    if not inMatch() then if S.frame then clear() end;S.hud=nil;S.hudText=nil;S.big=nil;S.bigText=nil;return end
+    if not inMatch() then if S.frame then clear() end;S.hud=nil;S.hudText=nil;S.big=nil;S.bigText=nil;S.logo=nil;S.logoAt=nil;S.logoOut=nil;pcall(bossBar,"",true);pcall(typePrompt,false);return end
+    pcall(startLogo)
     -- tells the GSC this script runs, so it skips its own HUD
     if S.ticks%30==1 then
         local set=get(rawget(_G,"Dvar"),"SetDvarString")
@@ -321,8 +456,14 @@ local function tick()
             call(S.big,"SetAlpha",1);S.bigText=big
         end
     end
+    local paused=invoke(get(rawget(_G,"LUI"),"FlowManager"),"IsInStack",H("MPPauseMenu"))==true
+    pcall(bossBar,read("zmm_boss") or "",paused)
+    local typing=read("zmm_type")=="1"
+    if typing and not S.typing then S.typeBuf="";S.typeSent=false end
+    S.typing=typing
+    pcall(typePrompt,typing,paused)
     local text=read("zmm_view") or ""
-    if text=="" or invoke(get(rawget(_G,"LUI"),"FlowManager"),"IsInStack",H("MPPauseMenu"))==true then
+    if text=="" or paused then
         hide();return
     end
     local pad=read("zmm_pad")=="1" and "1" or "0"
@@ -340,6 +481,7 @@ local function tick()
     if not S.frame or S.parent~=parent then build(parent) end
     render(f,n)
     S.last=text
+    pcall(showPic,read("zmm_pic") or "")
 end
 
 -- native UI timer, as in ProjectNexus: a hidden element's Wait(16) re-armed after each tick
@@ -374,7 +516,8 @@ local function ensureTimer()
         schedule()
     end)
 end
-S.ensureTimer=ensureTimer;S.clear=clear
+S.ensureTimer=ensureTimer
+S.clear=function() clear();pcall(bossBar,"",true);pcall(typePrompt,false) end
 
 -- arrow keys and D-pad move the open menu (GSC buttonpressed("uparrow") never fires): each press
 -- bumps the zmm_up / zmm_down counter the GSC polls. Names and their hashes, as in Project Nexus.
@@ -391,6 +534,15 @@ for _,names in ipairs({NAV,STICKS}) do
     for name,value in pairs(names) do hashed[tostring(H(name)):lower()]=value end
     for name,value in pairs(hashed) do names[name]=value end
 end
+-- round prompt keys (names and their hashes, like NAV)
+local TYPE={enter="ok",kp_enter="ok",["return"]="ok",escape="x",esc="x",backspace="bs",
+    ["-"]="-",minus="-",kp_minus="-",["+"]="+",["="]="+",equals="+",kp_plus="+"}
+for d=0,9 do TYPE[tostring(d)]=tostring(d);TYPE["kp_"..d]=tostring(d) end
+do
+    local hashed={}
+    for name,value in pairs(TYPE) do hashed[tostring(H(name)):lower()]=value end
+    for name,value in pairs(hashed) do TYPE[name]=value end
+end
 local function navKey(button,key,uiBind)
     local b,k,u=tostring(button):lower(),tostring(key):lower(),tostring(uiBind):lower()
     if STICKS[b] or STICKS[k] or STICKS[u] then return nil end
@@ -406,6 +558,14 @@ local function install()
     local wrapped=function(...)
         if S.enabled then pcall(ensureTimer) end
         local _,c,_,down,button,_,_,_,_,_,key,uiBind=...
+        -- round prompt: swallows its keys (digits would switch weapons) until the GSC closes it
+        if S.enabled and S.typing and (tonumber(c) or 0)==0 then
+            local t=TYPE[tostring(key):lower()] or TYPE[tostring(button):lower()]
+            if t then
+                if down==true and not S.typeSent then pcall(typeInput,t) end
+                return true
+            end
+        end
         local nav=S.enabled and (tonumber(c) or 0)==0 and navKey(button,key,uiBind)
         -- Insert only acts while the menu is closed, every other key only while it is open
         if nav and (S.visible==true)==(nav~="open") then
