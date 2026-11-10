@@ -1,28 +1,35 @@
-# 🧟 FuzMenu v2.5: ALL FEATURES 🧟
+# 🧟 FuzMenu v2.6: ALL FEATURES 🧟
 
 Zombies mod menu for BO7 / Kronos, solo and **co-op**.
 Open: **Aim + Melee** or **Insert** · Move: Aim / Shoot or arrows · Select: **F** or **Enter** · Back: **V** or **Backspace**
 On-screen hints adapt to controller or keyboard.
 
+## 🎨 Menu
+- **Start logo** when the game begins (can be turned off in Settings)
+- **Weapon picture** of your current gun next to the menu
+- **Boss health bar** on screen during boss fights
+
 ## 🛡️ OP Mode
-One switch turns on god mode, infinite ammo & points, free purchases, aimbot, wallhack, rapid fire, no recoil, Ultra + PaP 4, speed, jump x4, low gravity and all perks.
+One switch turns on god mode, infinite ammo & points, aimbot, wallhack, rapid fire, no recoil, infinite equipment & field upgrade, no fall / explosive self-damage, infinite tactical sprint, Ultra + PaP 4, speed, jump x4, low gravity and all perks.
 
 ## 🧍 Player
 - God mode, Zombies ignore me, Cinematic mode
 - Noclip (also the **N** key)
-- Infinite points, Free purchases
 - Speed x1.6, Infinite tactical sprint
 - No fall damage, No explosive self-damage
 - Restore health, Self revives x10
 - Jump height (x1.5 to x4), Gravity (x0.25 to x2)
+- **Field of view**: FOV +, Default FOV
 - Armor: 1 / 2 / 3 plates, Golden armor, Back shield (15 hits)
 
 ## 📍 Teleports
-Map locations, Save / Load position, Return to spawn, Unstuck
+Map locations, Return to spawn, Unstuck
+**Saved spots**: 5 positions per map, save and go back any time
 
 ## 🔫 Weapons
 **Give a weapon**
 - Every weapon class: assault rifles, SMGs, LMGs, shotguns, marksman, snipers, pistols, launchers, melee
+- **BO6 weapons**, **New weapons**, **Scorestreak weapons**, **Dead Ops Arcade guns**
 - My loadout primary / secondary, Random weapon, Remove held weapon
 - Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore
 
@@ -39,17 +46,18 @@ Infinite ammo, Rapid fire, Fast reload, No recoil, Free wall ammo, Aimbot (while
 **Upgrade**
 - Pack-a-Punch I to IV, Free PaP
 - Weapon rarity: Common to Ultra
-- Auto Ultra + PaP 4, Random / Next / Previous camo
-- **Saved builds**: 10 slots, kept even after a game restart
+- Auto Ultra + PaP 4
+- **Camos**: Random / Next / Previous camo
+- **Builds**: 10 slots, kept even after a game restart
 
 ## 🥤 Perks
-All perks, Eternal perks, Pick a perk, Remove all perks, Free perks
+All perks, Pick a perk, Remove all perks, Free perks
 
 ## 🍬 Gobblegums
 Random gums, every gum by rarity (Rare, Epic, Legendary, Ultra, Whimsical): equip it in a free slot or use it now
 
 ## 💰 Points & scrap
-Max points & scrap, Add points / scrap, Points multiplier x2 to x10, Scrap multiplier x2 to x10, Free crafting
+Max points & scrap, Infinite points, Add points / scrap, Points multiplier x2 to x10, Scrap multiplier x2 to x10, Free crafting
 
 ## 🧟 Zombies
 - Kill all, Leave one zombie, Zombie counter, Tessie
@@ -60,14 +68,19 @@ Max points & scrap, Add points / scrap, Points multiplier x2 to x10, Scrap multi
   - Bosses: Z-Rex, Golem, Neptune, Uranus, Galileo, Galileo Drone, Aeon, Virgil (on their own maps)
 - **Zombie speed**: Walk, Run, Sprint or Normal
 - **Behavior**: Freeze zombies, Zombies in a line (training), Despawn zombies
-- **Spawning**: Stop spawns, Zombies per round (1 to 24), Spawn rate x0.5 to x4, Force spawn here
+- **Spawning**: Stop spawns, Zombies per round (1 to 24), Spawn rate x0.5 to x4, Force spawn here, Can zombies reach here?
 - **Spawn points**: place as many as you want, zombies spawn at a random one
+- **Custom waves**: wave size 3 / 6 / 12, Boss, Elite, Armored, Dog or Mixed wave
+- **Detected types**: spawn any zombie type found on the current map
 
 ## ⏱️ Rounds
-Round timer, Round +1 / +5 / +10 / +100, Round -1 / -5 / -10 / -100, Jump to round 1, 10, 25, 50, 100, 255, 500 or 999
+- **Type a round number** with the keyboard
+- Round timer, Round +1 / +5 / +10 / +100, Round -1 / -5 / -10 / -100
+- Jump to round 1, 10, 25, 50, 100, 255, 500 or 999
 
-## 🏃 Speedrun
+## 🏃 Speedrun (in Rounds)
 - Live timer and splits, personal best saved, the timer starts when you move
+- Split panel on the right side of the screen
 - **Ashes**: Gauntlet, Lockdown end, Keys, Challenges, Veytarion
 - **Astra**: LGM-1, Brain, Mars, Ritual, Caltheris
 - **Paradox Junction**: Blundergat + Twins, Mini games + Sundergat, Dark Heart
@@ -76,11 +89,29 @@ Round timer, Round +1 / +5 / +10 / +100, Round -1 / -5 / -10 / -100, Jump to rou
 - Save your own start position for each split
 
 ## 🎁 Bonus
-All power-ups, Double points, Max ammo, Max armor, Full power, Free perk, Fire sale, Permanent fire sale, Nuke, Bonus points, Power-up duration x2 / x5
+All power-ups, Double points, Insta kill, Max ammo, Max armor, Full power, Free perk, Fire sale, Permanent fire sale, Nuke, Bonus points, **Power-up rain**, **Power-up circle**, Power-up duration x2 / x5
 
 ## 🌍 World
 Turn on power, Open all doors, **Start Boss Fight** (all maps), Restart map
 Mystery box: Free, Faster, Lock the box in place
+
+## 🎮 Game modes & rules
+**Game modes**
+Gun Game, One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
+
+**Match rules**
+Headshots only, Melee only, Tough zombies x2 / x5 / x10, Random weapon every round, Heal + revive at round end, Rest break 10 s / 30 s, Super sprinters from round 20 / 40
+
+**🕹️ Old School Zombies**
+Enable all at once, or pick:
+Old-school damage, No armor, Back shield (recharge it at the armor wall), OG specials & elites, Classic perk prices, 4 perks max (+1 every 20 rounds, Wunderfizz too), Random Wunderfizz, Quick Revive = self revive, No super sprinters, Zombie health past round 60, Classic points, No scrap, One-hit wonder weapons, Double Tap 2.0 (each hit counts as 2 bullets), Zombies in a line, Running zombies
+
+## 🌪️ Fun & chaos
+- **Chaos effects**: Black hole, Tornado, Conga line, Frost nova, Meteor shower, Lightning storm, Magnet, Fireworks, Thanos snap, Ground pound, Earthquake, Explosive punch, Bullet time
+- **Zombie toys**: Grab / throw zombie, Zombies orbit me, Float zombies up, Make a zombie your ally, Summon an ally, Size (bigger / smaller), Ragdoll, **Animations** (zombie, hellhound, abomination, amalgam, orion, karkinos, viper, shade, ghoul)
+- **Vehicles**: Blood Burner bike, Transport heli
+- **Kill effects**: Chain-reaction kills, Auto nuke every 15 s, Piñata kills
+- **Shot effects**: Explosive bullets, Lightning bullets, Freeze bullets, Teleport gun, Effect gun
 
 ## 🔨 Forge
 - **Props**: Box, Tower, Stairs, Mini base, Sky platform, Stack on last, **Zombie window**
@@ -92,12 +123,8 @@ Mystery box: Free, Faster, Lock the box in place
 - **Adjust last**: rotate (+45 / -45), push away, move back / left / right, raise, lower
 - **Save / Load** your build per map, Delete last, Delete nearest, Delete all
 
-## 🕹️ Old School Zombies
-Enable all at once, or pick:
-Old-school damage, No armor, Back shield (recharge it at the armor wall), OG specials & elites, Classic perk prices, 4 perks max (+1 every 20 rounds, Wunderfizz too), Random Wunderfizz, Quick Revive = self revive, No super sprinters, Zombie health past round 60, Classic points, No scrap, One-hit wonder weapons, Double Tap 2.0 (each hit counts as 2 bullets), Zombies in a line, Running zombies
-
 ## ⚙️ Settings
-Menu color, Menu on the right, Text mode (no HUD)
+Menu color, Menu on the right, Text mode (no HUD), Start logo
 **Profiles**: save and load 3 sets of settings
 
 ## 👥 Co-op
