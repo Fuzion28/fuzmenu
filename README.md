@@ -31,6 +31,7 @@ Map locations, Return to spawn, Unstuck
 - Every weapon class: assault rifles, SMGs, LMGs, shotguns, marksman, snipers, pistols, launchers, melee
 - **BO6 weapons**, **New weapons**, **Scorestreak weapons**, **Dead Ops Arcade guns**
 - My loadout primary / secondary, Random weapon, Remove held weapon
+- **Use my zombie build**: weapons come with your Gunsmith zombie build (stock if you have none)
 - Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore, Void Claw and Void Talon (upgraded) on Rex Infernus
 
 **Wonder weapons**

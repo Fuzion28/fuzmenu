@@ -295,6 +295,7 @@ function menu_build_pages()
         [ "My loadout secondary", 9, "class_sec", 0 ],
         [ "Random weapon", 5, "random_gun" ],
         [ "Remove held weapon", 5, "take_gun" ],
+        [ "Use my zombie build", 4, "zm_build" ],
         [ "Assault rifles", 2, "W_ar" ],
         [ "SMGs", 2, "W_sm" ],
         [ "LMGs", 2, "W_lm" ],
@@ -972,6 +973,8 @@ function menu_on_spawned( params )
     // on unless turned off: aim/fire move the cursor, aim + melee opens the menu (always on without the Lua, which has no other keys)
     state.toggles[ "mouse_nav" ] = nengine_store_get( "fuzmenu", "mouse" ) === "0" ? 0 : 1;
     state.toggles[ "aim_melee" ] = nengine_store_get( "fuzmenu", "aimmelee" ) === "0" ? 0 : 1;
+    // Give a weapon uses the player's Gunsmith zombie build when there is one
+    state.toggles[ "zm_build" ] = nengine_store_get( "fuzmenu", "zmbuild" ) === "1" ? 1 : 0;
     state.equip_loop = 0;
     state.upgrade_loop = 0;
     state.god_loop = 0;
@@ -1699,10 +1702,10 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
-    if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" )
+    if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" )
     {
         nengine_store_load( "fuzmenu", "settings" );
-        nengine_store_set( "fuzmenu", key == "start_logo" ? "logo" : ( key == "mouse_nav" ? "mouse" : "aimmelee" ), on ? "1" : "0" );
+        nengine_store_set( "fuzmenu", key == "start_logo" ? "logo" : ( key == "mouse_nav" ? "mouse" : ( key == "aim_melee" ? "aimmelee" : "zmbuild" ) ), on ? "1" : "0" );
         nengine_store_save( "fuzmenu", "settings" );
         return true;
     }
@@ -3743,6 +3746,29 @@ function menu_restore_build( slot )
     {
         return 0;
     }
+    return menu_build_from_str();
+}
+
+// Gunsmith zombie build of a weapon (sat_zm_weapon_setups.ddl: one setup per zm weapon), in the saved-build format "root,variant,camo,pap,att,var,..."
+function menu_zm_build( base )
+{
+    self.zmm.bk_id = self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponLootID" );
+    if ( !isdefined( self.zmm.bk_id ) || self.zmm.bk_id == 0 )
+    {
+        return 0;
+    }
+    // root loot id from the base name: the saved loot id can be a blueprint's
+    self.zmm.bk_str = "" + namespace_952965bfef60cff8::function_fae2e7aa6e279966( base ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponVariantID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "camoLootID" ) ?? 0 ) + ",0";
+    for ( self.zmm.bk_i = 0; self.zmm.bk_i < 16; self.zmm.bk_i++ )
+    {
+        self.zmm.bk_str = self.zmm.bk_str + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentLootID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentVariantID" ) ?? 0 );
+    }
+    return menu_build_from_str();
+}
+
+// builds and gives the gun of self.zmm.bk_str
+function menu_build_from_str()
+{
     self.zmm.bk_parts = strtok( self.zmm.bk_str, "," );
     if ( self.zmm.bk_parts.size < 4 )
     {
@@ -5617,6 +5643,11 @@ function menu_wonder_worker( label, name )
         return;
     }
     self.zmm.gun_loaded = 1;
+    if ( menu_toggle_state( "zm_build" ) && issubstr( name, "sat_" ) && issubstr( name, "_mp" ) && !issubstr( name, "_mpug" ) && menu_zm_build( removesubstr( name, "_mp" ) ) )
+    {
+        menu_notify( label + " (my build)", 1 );
+        return;
+    }
     if ( menu_give_wonder( name ) )
     {
         menu_notify( label, 1 );
@@ -6526,7 +6557,7 @@ function menu_prof_save( slot )
     str = "x";
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && menu_toggle_state( key ) )
+        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && key != "zm_build" && menu_toggle_state( key ) )
         {
             str = str + "," + key;
         }
@@ -6826,7 +6857,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in getarraykeys( state.toggles ) )
     {
-        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || !istrue( state.toggles[ key ] ) )
         {
             continue;
         }
