@@ -87,6 +87,7 @@ autoexec init()
     setdvar( @"zmm_back", "0" );
     setdvar( @"zmm_open", "0" );
     setdvar( @"zmm_pad", "0" );
+    setdvar( @"zmm_hk", "0" );
     // Old School parts that are on, read by the game-wide hooks
     level.zmm_cl = [];
     menu_build_pages();
@@ -371,6 +372,8 @@ function menu_build_pages()
         [ "Stun grenade", 9, "equip_t", "equip_concussion" ],
         [ "Flash", 9, "equip_t", "equip_flash" ],
         [ "Smoke", 9, "equip_t", "equip_smoke" ],
+        [ "Void Claw (Rex)", 9, "equip_t", "equip_grappling_hook" ],
+        [ "Void Talon (upgraded, Rex)", 9, "equip_t", "equip_grappling_hook_upgraded" ],
         [ "Frag grenade", 9, "equip_l", "equip_frag" ],
         [ "Semtex", 9, "equip_l", "equip_semtex" ],
         [ "Molotov", 9, "equip_l", "equip_molotov" ],
@@ -783,6 +786,9 @@ function menu_build_pages()
         [ "Menu on the right", 4, "menu_right" ],
         [ "Text mode (no HUD)", 4, "text_mode" ],
         [ "Start logo", 4, "start_logo" ],
+        [ "Mouse navigation", 4, "mouse_nav" ],
+        [ "Aim + Melee opens the menu", 4, "aim_melee" ],
+        [ "Shortcuts (F1-F12)", 9, "hk_list", 0 ],
         [ "Profiles", 2, "Profiles" ],
         [ "Back", 1, "" ]
     ] );
@@ -963,6 +969,9 @@ function menu_on_spawned( params )
     // Settings > Start logo, remembered across matches in kronos/fuzmenu/settings.json
     nengine_store_load( "fuzmenu", "settings" );
     state.toggles[ "start_logo" ] = nengine_store_get( "fuzmenu", "logo" ) === "0" ? 0 : 1;
+    // on unless turned off: aim/fire move the cursor, aim + melee opens the menu (always on without the Lua, which has no other keys)
+    state.toggles[ "mouse_nav" ] = nengine_store_get( "fuzmenu", "mouse" ) === "0" ? 0 : 1;
+    state.toggles[ "aim_melee" ] = nengine_store_get( "fuzmenu", "aimmelee" ) === "0" ? 0 : 1;
     state.equip_loop = 0;
     state.upgrade_loop = 0;
     state.god_loop = 0;
@@ -975,6 +984,7 @@ function menu_on_spawned( params )
     state.spawn_angles = self getplayerangles();
     self.zmm = state;
     self thread menu_input_loop();
+    self thread menu_hk_loop();
     self thread menu_welcome();
 }
 
@@ -1009,7 +1019,8 @@ function menu_input_loop()
 
         if ( !state.is_open )
         {
-            if ( self adsbuttonpressed() && self meleebuttonpressed() )
+            // the setting is for keyboard and mouse: a controller or a guest (no Insert) always opens with aim + melee
+            if ( self adsbuttonpressed() && self meleebuttonpressed() && ( !state.lua || istrue( state.toggles[ "aim_melee" ] ) || istrue( self function_7cab310f9d8209c9() ) || !menu_is_host() ) )
             {
                 menu_open();
                 while ( self adsbuttonpressed() || self meleebuttonpressed() )
@@ -1034,12 +1045,12 @@ function menu_input_loop()
         {
             wait 0.05;
         }
-        else if ( self adsbuttonpressed() )
+        else if ( ( !state.lua || istrue( state.toggles[ "mouse_nav" ] ) || !menu_is_host() ) && self adsbuttonpressed() )
         {
             menu_move( -1 );
             wait 0.15;
         }
-        else if ( self attackbuttonpressed() )
+        else if ( ( !state.lua || istrue( state.toggles[ "mouse_nav" ] ) || !menu_is_host() ) && self attackbuttonpressed() )
         {
             menu_move( 1 );
             wait 0.15;
@@ -1217,7 +1228,12 @@ function menu_back()
 function menu_confirm()
 {
     state = self.zmm;
-    entry = level.zmm_pages[ state.page ].items[ state.cursor ];
+    menu_run_entry( level.zmm_pages[ state.page ].items[ state.cursor ] );
+}
+
+// what a menu row does: the selected row, or a shortcut key's saved row
+function menu_run_entry( entry )
+{
     kind = entry[ 1 ];
     if ( kind == 0 )
     {
@@ -1437,7 +1453,7 @@ function menu_welcome()
         // zm_mod_menu_post.lua shows images/fuzmenu_logo.png once when this turns "1"
         setdvar( @"zmm_logo", "1" );
     }
-    hint = level.zmm_hint;
+    hint = menu_toggle_state( "aim_melee" ) || istrue( self function_7cab310f9d8209c9() ) || !menu_is_host() ? level.zmm_hint : "Insert to open";
     if ( isdefined( level.zmm_hud_splash ) )
     {
         self.zmm.hud_right = menu_toggle_state( "menu_right" );
@@ -1565,6 +1581,24 @@ function menu_view_row( entry )
     {
         return ( self [[ level.zmm_ext_on[ entry[ 2 ] ] ]]( entry[ 3 ] ) ? "+" : "-" ) + entry[ 0 ];
     }
+    // perk page: Have it / Eternal show their state
+    if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk_have" )
+    {
+        return ( self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( entry[ 3 ] ) ? "+" : "-" ) + entry[ 0 ];
+    }
+    if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk_eternal" )
+    {
+        return ( isdefined( self.zmm.eternal ) && istrue( self.zmm.eternal[ entry[ 3 ] ] ) ? "+" : "-" ) + entry[ 0 ];
+    }
+    // Pick a perk: opens the perk page, eternal ones say so
+    if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk" )
+    {
+        if ( isdefined( self.zmm.eternal ) && istrue( self.zmm.eternal[ entry[ 3 ] ] ) )
+        {
+            return ">" + entry[ 0 ] + " (eternal)";
+        }
+        return ">" + entry[ 0 ];
+    }
     return " " + entry[ 0 ];
 }
 
@@ -1665,10 +1699,10 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
-    if ( key == "start_logo" )
+    if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" )
     {
         nengine_store_load( "fuzmenu", "settings" );
-        nengine_store_set( "fuzmenu", "logo", on ? "1" : "0" );
+        nengine_store_set( "fuzmenu", key == "start_logo" ? "logo" : ( key == "mouse_nav" ? "mouse" : "aimmelee" ), on ? "1" : "0" );
         nengine_store_save( "fuzmenu", "settings" );
         return true;
     }
@@ -6341,9 +6375,25 @@ function menu_param( label, action, value )
             self thread menu_do_teleport( value, self getplayerangles() );
         }
     }
+    else if ( action == "hk_list" )
+    {
+        menu_hk_page();
+        menu_enter( "Shortcuts" );
+        return;
+    }
+    else if ( action == "hk_clear" )
+    {
+        ok = menu_hk_clear( value );
+    }
     else if ( action == "perk" )
     {
-        ok = menu_grant_perk( value );
+        menu_add_page( "PerkOne", label, [ [ "Have it", 9, "perk_have", value ], [ "Eternal (survives downs)", 9, "perk_eternal", value ], [ "Back", 1, "" ] ] );
+        menu_enter( "PerkOne" );
+        return;
+    }
+    else if ( action == "perk_have" || action == "perk_eternal" )
+    {
+        ok = menu_perk_set( action, value );
     }
     else if ( action == "gum_list" )
     {
@@ -6476,7 +6526,7 @@ function menu_prof_save( slot )
     str = "x";
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && menu_toggle_state( key ) )
+        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && menu_toggle_state( key ) )
         {
             str = str + "," + key;
         }
@@ -6776,7 +6826,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in getarraykeys( state.toggles ) )
     {
-        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || !istrue( state.toggles[ key ] ) )
         {
             continue;
         }
@@ -7328,6 +7378,72 @@ function menu_grant_perk( perk )
     return self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk );
 }
 
+// perk page toggles: Have it gives/removes the perk (removing also ends eternal), Eternal marks it to come back after a down (and gives it)
+function menu_perk_set( action, perk )
+{
+    state = self.zmm;
+    if ( !isdefined( state.eternal ) )
+    {
+        state.eternal = [];
+    }
+    if ( action == "perk_eternal" )
+    {
+        if ( istrue( state.eternal[ perk ] ) )
+        {
+            state.eternal[ perk ] = undefined;
+            return true;
+        }
+        state.eternal[ perk ] = 1;
+        self thread menu_eternal_loop();
+        return self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk ) || menu_grant_perk( perk );
+    }
+    if ( !self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk ) )
+    {
+        return menu_grant_perk( perk );
+    }
+    state.eternal[ perk ] = undefined;
+    self namespace_377106c4017f7cda::function_145b00820a9f68b2( perk, true );
+    // removal finishes over a few frames
+    for ( state.perk_try = 0; state.perk_try < 60 && self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk ); state.perk_try++ )
+    {
+        waitframe();
+    }
+    return !self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk );
+}
+
+// gives the eternal perks back after a down; ends once none is left
+function menu_eternal_loop()
+{
+    self endon( "disconnect" );
+    state = self.zmm;
+    if ( istrue( state.eternal_loop ) )
+    {
+        return;
+    }
+    state.eternal_loop = 1;
+    for ( ;; )
+    {
+        wait 0.5;
+        state.eternal_any = 0;
+        foreach ( perk in menu_perk_keys() )
+        {
+            if ( istrue( state.eternal[ perk ] ) )
+            {
+                state.eternal_any = 1;
+                if ( isalive( self ) && !istrue( self.inlaststand ) && !self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk ) )
+                {
+                    menu_grant_perk( perk );
+                }
+            }
+        }
+        if ( !state.eternal_any )
+        {
+            state.eternal_loop = 0;
+            return;
+        }
+    }
+}
+
 function menu_revoke_perks()
 {
     keys = menu_perk_keys();
@@ -7336,6 +7452,7 @@ function menu_revoke_perks()
         return false;
     }
     self.perma_perks = [];
+    self.zmm.eternal = [];
     foreach ( perk in keys )
     {
         if ( self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( perk ) )
@@ -7453,4 +7570,156 @@ function menu_apply_despawn( on )
         level namespace_60b3bdcc70f79fc6::function_36488e0e5a90d20f( "pause_round_timeout" );
     }
     return true;
+}
+
+// ---------------------------------------------------------------- shortcuts (Settings > Shortcuts)
+// zm_mod_menu_post.lua writes "<key>:<count>" to zmm_hk on F1-F12 (host keyboard).
+// Menu open: binds the highlighted row to that key (same key again unbinds it). Menu closed: runs the bound row.
+// Saved as "kind~label~arg~value" in kronos/fuzmenu/shortcuts.json
+
+function menu_hk_loop()
+{
+    self endon( "disconnect" );
+    state = self.zmm;
+    while ( isdefined( self.zmm ) && state.running )
+    {
+        wait 0.05;
+        if ( getdvar( @"zmm_hk" ) == "0" || !menu_is_host() )
+        {
+            continue;
+        }
+        state.hk_key = strtok( getdvar( @"zmm_hk" ), ":" )[ 0 ];
+        setdvar( @"zmm_hk", "0" );
+        if ( state.is_open )
+        {
+            menu_hk_bind( state.hk_key );
+        }
+        else
+        {
+            menu_hk_run( state.hk_key );
+        }
+    }
+}
+
+// strings as "s...", whole numbers as "i...", decimals as "n" + value * 1000 (no float() to read them back), nothing as "u"
+function menu_hk_enc( v )
+{
+    if ( !isdefined( v ) )
+    {
+        return "u";
+    }
+    if ( isstring( v ) )
+    {
+        return "s" + v;
+    }
+    if ( int( v * 1000 ) % 1000 == 0 )
+    {
+        return "i" + int( v );
+    }
+    return "n" + int( v * 1000 );
+}
+
+function menu_hk_dec( v )
+{
+    if ( v == "u" )
+    {
+        return undefined;
+    }
+    if ( getsubstr( v, 0, 1 ) == "s" )
+    {
+        return getsubstr( v, 1 );
+    }
+    if ( getsubstr( v, 0, 1 ) == "i" )
+    {
+        return int( getsubstr( v, 1 ) );
+    }
+    return int( getsubstr( v, 1 ) ) / 1000;
+}
+
+function menu_hk_bind( key )
+{
+    state = self.zmm;
+    state.hk_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
+    // rows that need a picked player or a position cannot be saved as text
+    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" ) ) )
+    {
+        menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
+        return;
+    }
+    state.hk_val = state.hk_entry[ 1 ] + "~" + state.hk_entry[ 0 ] + "~" + menu_hk_enc( state.hk_entry[ 2 ] ) + "~" + menu_hk_enc( state.hk_entry[ 3 ] );
+    nengine_store_load( "fuzmenu", "shortcuts" );
+    if ( nengine_store_get( "fuzmenu", "f" + key ) === state.hk_val )
+    {
+        nengine_store_set( "fuzmenu", "f" + key, "" );
+        state.hk_label = "F" + key + " unbound";
+    }
+    else
+    {
+        nengine_store_set( "fuzmenu", "f" + key, state.hk_val );
+        state.hk_label = "F" + key + " = " + state.hk_entry[ 0 ];
+    }
+    nengine_store_save( "fuzmenu", "shortcuts" );
+    menu_notify( state.hk_label, 1 );
+}
+
+function menu_hk_run( key )
+{
+    state = self.zmm;
+    nengine_store_load( "fuzmenu", "shortcuts" );
+    state.hk_val = nengine_store_get( "fuzmenu", "f" + key );
+    if ( !isstring( state.hk_val ) || state.hk_val == "" )
+    {
+        return;
+    }
+    state.hk_parts = strtok( state.hk_val, "~" );
+    if ( state.hk_parts.size < 4 )
+    {
+        return;
+    }
+    state.hk_entry = [ state.hk_parts[ 1 ], int( state.hk_parts[ 0 ] ), menu_hk_dec( state.hk_parts[ 2 ] ), menu_hk_dec( state.hk_parts[ 3 ] ) ];
+    state.page = "Main";
+    state.stack = [];
+    state.depth = 0;
+    menu_run_entry( state.hk_entry );
+    // a page row (or a list opener) opens the menu on that page
+    if ( state.depth > 0 && !state.is_open && isdefined( level.zmm_pages[ state.page ] ) )
+    {
+        state.hk_page = state.page;
+        menu_open();
+        menu_enter( state.hk_page );
+    }
+}
+
+function menu_hk_page()
+{
+    state = self.zmm;
+    state.hk_items = [];
+    nengine_store_load( "fuzmenu", "shortcuts" );
+    for ( state.hk_i = 1; state.hk_i <= 12; state.hk_i++ )
+    {
+        state.hk_val = nengine_store_get( "fuzmenu", "f" + state.hk_i );
+        state.hk_label = "-";
+        if ( isstring( state.hk_val ) && state.hk_val != "" && strtok( state.hk_val, "~" ).size >= 2 )
+        {
+            state.hk_label = strtok( state.hk_val, "~" )[ 1 ];
+        }
+        state.hk_items[ state.hk_items.size ] = [ "F" + state.hk_i + ": " + state.hk_label, 9, "hk_clear", state.hk_i ];
+    }
+    state.hk_items[ state.hk_items.size ] = [ "Back", 1, "" ];
+    menu_add_page( "Shortcuts", "SHORTCUTS: HIGHLIGHT ANY OPTION, PRESS F1-F12", state.hk_items );
+}
+
+// a row of the Shortcuts page: unbinds that key
+function menu_hk_clear( key )
+{
+    nengine_store_load( "fuzmenu", "shortcuts" );
+    if ( !isstring( nengine_store_get( "fuzmenu", "f" + key ) ) || nengine_store_get( "fuzmenu", "f" + key ) == "" )
+    {
+        menu_notify( "Highlight any option and press F1-F12 to bind it", 1 );
+        return 1;
+    }
+    nengine_store_set( "fuzmenu", "f" + key, "" );
+    nengine_store_save( "fuzmenu", "shortcuts" );
+    menu_hk_page();
+    return 1;
 }

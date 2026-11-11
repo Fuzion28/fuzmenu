@@ -560,6 +560,14 @@ do
     for name,value in pairs(TYPE) do hashed[tostring(H(name)):lower()]=value end
     for name,value in pairs(hashed) do TYPE[name]=value end
 end
+-- shortcut keys F1-F12 (names and their hashes, like NAV)
+local FKEY={}
+for n=1,12 do FKEY["f"..n]=n end
+do
+    local hashed={}
+    for name,value in pairs(FKEY) do hashed[tostring(H(name)):lower()]=value end
+    for name,value in pairs(hashed) do FKEY[name]=value end
+end
 local function navKey(button,key,uiBind)
     local b,k,u=tostring(button):lower(),tostring(key):lower(),tostring(uiBind):lower()
     if STICKS[b] or STICKS[k] or STICKS[u] then return nil end
@@ -582,6 +590,15 @@ local function install()
                 if down==true and not S.typeSent then pcall(typeInput,t) end
                 return true
             end
+        end
+        -- shortcut key: "<key>:<count>", the GSC binds it (menu open) or runs it (menu closed); swallowed so the game ignores F1-F12
+        local fk=S.enabled and (tonumber(c) or 0)==0 and (FKEY[tostring(key):lower()] or FKEY[tostring(button):lower()])
+        if fk then
+            if down==true then
+                S.hk=(S.hk or 0)+1
+                pcall(invoke,rawget(_G,"Dvar"),"SetDvarString",HD("zmm_hk"),fk..":"..S.hk)
+            end
+            return true
         end
         local nav=S.enabled and (tonumber(c) or 0)==0 and navKey(button,key,uiBind)
         -- Insert only acts while the menu is closed, every other key only while it is open

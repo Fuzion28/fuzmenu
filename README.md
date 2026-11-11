@@ -1,7 +1,7 @@
 # 🧟 FuzMenu v2.6: ALL FEATURES 🧟
 
 Zombies mod menu for BO7 / Kronos, solo and **co-op**.
-Open: **Aim + Melee** or **Insert** · Move: Aim / Shoot or arrows · Select: **F** or **Enter** · Back: **V** or **Backspace**
+Open: **Aim + Melee** or **Insert** · Move: arrows / D-pad, or Aim / Shoot · Select: **F** or **Enter** · Back: **V** or **Backspace**
 On-screen hints adapt to controller or keyboard.
 
 ## 🎨 Menu
@@ -31,7 +31,7 @@ Map locations, Return to spawn, Unstuck
 - Every weapon class: assault rifles, SMGs, LMGs, shotguns, marksman, snipers, pistols, launchers, melee
 - **BO6 weapons**, **New weapons**, **Scorestreak weapons**, **Dead Ops Arcade guns**
 - My loadout primary / secondary, Random weapon, Remove held weapon
-- Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore
+- Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore, Void Claw and Void Talon (upgraded) on Rex Infernus
 
 **Wonder weapons**
 Necrofluid (Ashes, Rex), Nekomancer (Kowakujo), Jotunn Star (Totenreich), Blundergat (Paradox), Sundergat (Paradox), LGM-1 (Astra), Warden's Blight (Rex), Ray Gun, Ray Gun Mk2
@@ -51,7 +51,7 @@ Infinite ammo, Rapid fire, Fast reload, No recoil, Free wall ammo, Aimbot (while
 - **Builds**: 10 slots, kept even after a game restart
 
 ## 🥤 Perks
-All perks, Pick a perk, Remove all perks, Free perks
+All perks, Pick a perk (each perk has Have it and Eternal: survives downs), Remove all perks, Free perks
 
 ## 🍬 Gobblegums
 Random gums, every gum by rarity (Rare, Epic, Legendary, Ultra, Whimsical): equip it in a free slot or use it now
@@ -124,7 +124,8 @@ Old-school damage, No armor, Back shield (recharge it at the armor wall), OG spe
 - **Save / Load** your build per map, Delete last, Delete nearest, Delete all
 
 ## ⚙️ Settings
-Menu color, Menu on the right, Text mode (no HUD), Start logo
+Menu color, Menu on the right, Text mode (no HUD), Start logo, Mouse navigation (Aim up, Shoot down), Aim + Melee opens the menu on keyboard/mouse (always on with a controller)
+**Shortcuts**: highlight any option and press F1-F12 to bind it, then press the key with the menu closed. Same key again unbinds it. F1-F12 no longer do their usual in-game action.
 **Profiles**: save and load 3 sets of settings
 
 ## 👥 Co-op
@@ -137,5 +138,5 @@ Every player gets the menu. Host: full panel. Other players: text line in the mi
 ## 📦 Install
 Kronos launcher → **Workshop** → **FuzMenu** → Install (or extract the rar into your Kronos folder).
 ⚠️ The Workshop update won't show up right away: it has to be accepted first. Until then, use the rar.
-Launch Zombies and press **Aim + Melee** or **Insert**.
+Launch Zombies and press **Insert**.
 Files: https://github.com/Fuzion28/fuzmenu
