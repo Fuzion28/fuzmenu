@@ -324,6 +324,7 @@ function menu_build_pages()
         [ "Epic", 9, "rarity", 3 ],
         [ "Legendary", 9, "rarity", 4 ],
         [ "Ultra", 9, "rarity", 5 ],
+        [ "Wonder weapon", 9, "rarity", 6 ],
         [ "Back", 1, "" ]
     ] );
 
@@ -3740,7 +3741,7 @@ function menu_restore_build( slot )
     }
     if ( int( self.zmm.bk_parts[ 3 ] ) > 0 )
     {
-        menu_pap( int( self.zmm.bk_parts[ 3 ] ) );
+        menu_pap( int( self.zmm.bk_parts[ 3 ] ), 1 );
     }
     return 1;
 }
@@ -5322,7 +5323,7 @@ function menu_assign_slot( w_new )
 }
 
 // returns 1 on success, other values are failure codes
-function menu_pap( tier )
+function menu_pap( tier, allow_lower = 0 )
 {
     if ( !utility::issharedfuncdefined( #"pack_a_punch", #"pap_weapon" ) )
     {
@@ -5339,7 +5340,7 @@ function menu_pap( tier )
     }
     level.var_eda995bb839c4aa = 4;
     cur_level = menu_pap_level( weapon );
-    if ( cur_level >= tier )
+    if ( cur_level == tier || ( cur_level > tier && !allow_lower ) )
     {
         return 1;
     }
@@ -6157,7 +6158,7 @@ function menu_param( label, action, value )
     self.zmm.prof_vals[ action ] = value;
     if ( action == "pap" )
     {
-        ok = menu_pap( value ) == 1;
+        ok = menu_pap( value, 1 ) == 1;
     }
     else if ( action == "rarity" )
     {
