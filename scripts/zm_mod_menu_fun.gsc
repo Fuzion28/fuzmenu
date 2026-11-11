@@ -70,6 +70,7 @@ function fun_wait_menu()
     level callback::add( #"hash_652eb614ba902b3d", &fun_player_hurt );
     level callback::add( "on_zombie_ai_damaged", &fun_zombie_hurt );
     level callback::add( "on_zombie_ai_killed", &fun_zombie_dead );
+    level callback::add( #"player_spawned", &fun_mode_respawn );
     level thread fun_round_watch();
     level thread fun_zone_keep();
 }
@@ -856,6 +857,49 @@ function fun_mode_stop()
     level notify( #"fun_mode_end" );
     level.fun_mode = "";
     level.fun_zone_c = undefined;
+    setdvar( @"zmm_gg", "" );
+}
+
+// a player who spawns in late or comes back after a bleed-out gets the mode's gun too
+function fun_mode_respawn( params )
+{
+    if ( isdefined( self ) && isplayer( self ) )
+    {
+        self thread fun_mode_rearm();
+    }
+}
+
+// waits for the spawn loadout first, or it would replace the mode's gun
+function fun_mode_rearm()
+{
+    self endon( #"disconnect" );
+    wait 1;
+    if ( !isdefined( self.zmm ) || !isdefined( level.fun_mode ) || !isalive( self ) )
+    {
+        return;
+    }
+    if ( level.fun_mode == "gg" && isdefined( level.fun_ladder ) && level.fun_ladder.size > 0 )
+    {
+        if ( !isdefined( self.zmm.fun_gg_lvl ) || self.zmm.fun_gg_lvl >= level.fun_ladder.size )
+        {
+            self.zmm.fun_gg_lvl = 0;
+            self.zmm.fun_gg_kills = 0;
+        }
+        self thread fun_gg_give( level.fun_ladder[ self.zmm.fun_gg_lvl ] );
+        self fun_gg_hud();
+    }
+    else if ( level.fun_mode == "oitc" )
+    {
+        self thread fun_oitc_arm();
+    }
+    else if ( level.fun_mode == "roul" )
+    {
+        self thread fun_roul_loop();
+    }
+    else if ( level.fun_mode == "sharp" && isdefined( level.fun_sharp_gun ) )
+    {
+        self thread fun_give_gun( level.fun_sharp_gun );
+    }
 }
 
 function fun_mode_players()
@@ -871,16 +915,33 @@ function fun_mode_players()
     return level.fun_mp;
 }
 
-// Gun Game: one random gun per class, pistol to launcher; 6 kills to go up
+// Gun Game: every gun of the weapon pages, class by class from pistols to launchers (shuffled inside a class); 3 kills to go up
 function fun_gg_start( key )
 {
     level.fun_ladder = [];
-    foreach ( page_id in level.fun_ladder_pages )
+    if ( isdefined( level.zmm_pages ) )
     {
-        level.fun_lg = fun_random_gun_from( [ page_id ] );
-        if ( isdefined( level.fun_lg ) )
+        foreach ( page_id in level.fun_ladder_pages )
         {
-            level.fun_ladder[ level.fun_ladder.size ] = level.fun_lg;
+            if ( !isdefined( level.zmm_pages[ page_id ] ) )
+            {
+                continue;
+            }
+            level.fun_lg_start = level.fun_ladder.size;
+            foreach ( entry in level.zmm_pages[ page_id ].items )
+            {
+                if ( entry[ 1 ] == 8 )
+                {
+                    level.fun_ladder[ level.fun_ladder.size ] = fun_gun_from_entry( entry );
+                }
+            }
+            for ( level.fun_lg_i = level.fun_ladder.size - 1; level.fun_lg_i > level.fun_lg_start; level.fun_lg_i-- )
+            {
+                level.fun_lg_j = level.fun_lg_start + randomint( level.fun_lg_i - level.fun_lg_start + 1 );
+                level.fun_lg = level.fun_ladder[ level.fun_lg_i ];
+                level.fun_ladder[ level.fun_lg_i ] = level.fun_ladder[ level.fun_lg_j ];
+                level.fun_ladder[ level.fun_lg_j ] = level.fun_lg;
+            }
         }
     }
     if ( level.fun_ladder.size == 0 )
@@ -888,13 +949,29 @@ function fun_gg_start( key )
         level.fun_mode = "";
         return;
     }
-    level.fun_gg_need = 6;
-    fun_say_all( "^3Gun Game: kills move you up" );
+    level.fun_gg_need = 3;
+    fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + level.fun_gg_need + " kills each" );
+    foreach ( p in level.players )
+    {
+        if ( isdefined( p ) && isdefined( p.zmm ) )
+        {
+            p.zmm.fun_gg_lvl = 0;
+            p.zmm.fun_gg_kills = 0;
+        }
+    }
     foreach ( p in fun_mode_players() )
     {
-        p.zmm.fun_gg_lvl = 0;
-        p.zmm.fun_gg_kills = 0;
-        p thread fun_give_gun( level.fun_ladder[ 0 ] );
+        p thread fun_gg_give( level.fun_ladder[ 0 ] );
+        p fun_gg_hud();
+    }
+}
+
+// self = player; zm_mod_menu_post.lua draws the host's zmm_gg line and turns the weapon ref into the gun's name
+function fun_gg_hud()
+{
+    if ( [[ level.zmm_is_host_fn ]]() )
+    {
+        setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + "   Kills " + self.zmm.fun_gg_kills + "/" + level.fun_gg_need );
     }
 }
 
@@ -909,6 +986,7 @@ function fun_gg_kill()
     self.zmm.fun_gg_kills++;
     if ( self.zmm.fun_gg_kills < level.fun_gg_need )
     {
+        self fun_gg_hud();
         return;
     }
     self.zmm.fun_gg_kills = 0;
@@ -918,7 +996,23 @@ function fun_gg_kill()
         self iprintlnbold( "^2Gun Game cleared! Back to the start" );
         self.zmm.fun_gg_lvl = 0;
     }
-    self thread fun_give_gun( level.fun_ladder[ self.zmm.fun_gg_lvl ] );
+    else if ( ![[ level.zmm_is_host_fn ]]() || getdvar( @"zmm_lua" ) != "1" )
+    {
+        self iprintln( "^3Gun " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size );
+    }
+    self thread fun_gg_give( level.fun_ladder[ self.zmm.fun_gg_lvl ] );
+    self fun_gg_hud();
+}
+
+// the player's Gunsmith zombie build of that gun when there is one (zm_mod_menu's menu_zm_build), else the stock gun
+function fun_gg_give( name )
+{
+    self endon( #"disconnect" );
+    if ( isdefined( level.zmm_zm_build_fn ) && isdefined( name ) && istrue( self [[ level.zmm_zm_build_fn ]]( name ) ) )
+    {
+        return;
+    }
+    self fun_give_gun( name );
 }
 
 // One in the Chamber: a pistol with one bullet, every bullet kills, every kill gives a bullet back
@@ -933,10 +1027,16 @@ function fun_oitc_start( key )
 
 function fun_oitc_arm()
 {
+    self notify( #"fun_rearm" );
+    self endon( #"fun_rearm" );
     self endon( #"disconnect" );
     level endon( #"fun_mode_end" );
     self.zmm.fun_w = undefined;
-    self fun_give_gun( fun_random_gun_from( [ "W_pi" ] ) );
+    // a few tries: a give can fail while the gun loads
+    for ( self.zmm.fun_try = 0; self.zmm.fun_try < 3 && !isdefined( self.zmm.fun_w ); self.zmm.fun_try++ )
+    {
+        self fun_give_gun( fun_random_gun_from( [ "W_pi" ] ) );
+    }
     if ( !isdefined( self.zmm.fun_w ) )
     {
         return;
@@ -955,7 +1055,16 @@ function fun_sharp_start( key )
     level endon( #"fun_mode_end" );
     while ( level.fun_mode == "sharp" )
     {
-        level.fun_sharp_gun = fun_random_gun_from( level.fun_gun_pages );
+        level.fun_sharp_last = level.fun_sharp_gun;
+        // never the same gun twice in a row
+        for ( level.fun_sharp_try = 0; level.fun_sharp_try < 10; level.fun_sharp_try++ )
+        {
+            level.fun_sharp_gun = fun_random_gun_from( level.fun_gun_pages );
+            if ( !isdefined( level.fun_sharp_last ) || !( level.fun_sharp_gun === level.fun_sharp_last ) )
+            {
+                break;
+            }
+        }
         fun_say_all( "^3Sharpshooter: new gun" );
         foreach ( p in fun_mode_players() )
         {
@@ -977,12 +1086,17 @@ function fun_roul_start( key )
 
 function fun_roul_loop()
 {
+    self notify( #"fun_rearm" );
+    self endon( #"fun_rearm" );
     self endon( #"disconnect" );
     level endon( #"fun_mode_end" );
     while ( level.fun_mode == "roul" )
     {
         self.zmm.fun_w = undefined;
-        self fun_give_random();
+        for ( self.zmm.fun_try = 0; self.zmm.fun_try < 3 && !isdefined( self.zmm.fun_w ); self.zmm.fun_try++ )
+        {
+            self fun_give_random();
+        }
         if ( !isdefined( self.zmm.fun_w ) )
         {
             return;
@@ -1086,6 +1200,12 @@ function fun_zone_center( zone )
     return undefined;
 }
 
+// same test as the game's fog spawning (Ashes): fog zones hurt players, so the rotation skips them
+function fun_zone_fog( zone )
+{
+    return istrue( zone.var_4dc255bc20838308 ) && isdefined( level.var_25223259f9cd6017 ) && isdefined( zone.var_92781bc7d418ab8a ) && istrue( level.var_25223259f9cd6017[ zone.var_92781bc7d418ab8a ] );
+}
+
 function fun_zone_shift()
 {
     level endon( #"fun_mode_end" );
@@ -1093,11 +1213,11 @@ function fun_zone_shift()
     wait 10;
     level.fun_zone_keys = getarraykeys( level.var_63a203e154ffeca0.var_4ab2642fe2ee0966 );
     level.fun_zone_new = undefined;
-    for ( level.fun_zone_try = 0; level.fun_zone_try < 15 && level.fun_zone_keys.size > 0; level.fun_zone_try++ )
+    for ( level.fun_zone_try = 0; level.fun_zone_try < 40 && level.fun_zone_keys.size > 0; level.fun_zone_try++ )
     {
         level.fun_zone_k = level.fun_zone_keys[ randomint( level.fun_zone_keys.size ) ];
         level.fun_zone_pt = fun_zone_center( level.var_63a203e154ffeca0.var_4ab2642fe2ee0966[ level.fun_zone_k ] );
-        if ( isdefined( level.fun_zone_pt ) && ( !isdefined( level.fun_zone_c ) || distance( level.fun_zone_pt, level.fun_zone_c ) > 800 ) )
+        if ( isdefined( level.fun_zone_pt ) && !fun_zone_fog( level.var_63a203e154ffeca0.var_4ab2642fe2ee0966[ level.fun_zone_k ] ) && ( !isdefined( level.fun_zone_c ) || distance( level.fun_zone_pt, level.fun_zone_c ) > 800 ) )
         {
             level.fun_zone_new = level.fun_zone_pt;
             break;

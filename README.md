@@ -93,12 +93,12 @@ Max points & scrap, Infinite points, Add points / scrap, Points multiplier x2 to
 All power-ups, Double points, Insta kill, Max ammo, Max armor, Full power, Free perk, Fire sale, Permanent fire sale, Nuke, Bonus points, **Power-up rain**, **Power-up circle**, Power-up duration x2 / x5
 
 ## 🌍 World
-Turn on power, Open all doors, **Start Boss Fight** (all maps), Restart map
+Turn on power, Open all doors, **Start Boss Fight** (all maps), **Finish Boss Fight** (ends the fight with its death scene), Restart map
 Mystery box: Free, Faster, Lock the box in place
 
 ## 🎮 Game modes & rules
 **Game modes**
-Gun Game, One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
+Gun Game (your zombie builds when you have one), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
 
 **Match rules**
 Headshots only, Melee only, Tough zombies x2 / x5 / x10, Random weapon every round, Heal + revive at round end, Rest break 10 s / 30 s, Super sprinters from round 20 / 40
@@ -127,6 +127,7 @@ Old-school damage, No armor, Back shield (recharge it at the armor wall), OG spe
 ## ⚙️ Settings
 Menu color, Menu on the right, Text mode (no HUD), Start logo, Mouse navigation (Aim up, Shoot down), Aim + Melee opens the menu on keyboard/mouse (always on with a controller)
 **Shortcuts**: highlight any option and press F1-F12 to bind it, then press the key with the menu closed. Same key again unbinds it. F1-F12 no longer do their usual in-game action.
+**Favorites**: first page of the menu. Highlight any option and press right arrow (D-pad right) to add it, same key on a favorite removes it. Up to 8, saved.
 **Profiles**: save and load 3 sets of settings
 
 ## 👥 Co-op

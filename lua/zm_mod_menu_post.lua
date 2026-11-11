@@ -457,6 +457,27 @@ local function tick()
             S.hudText=hud
         end
     end
+    -- Gun Game progress written by the GSC into zmm_gg, under the zmm_hud line
+    local gg=read("zmm_gg") or ""
+    if gg~=(S.ggText or "") then
+        local parent=displayParent()
+        if gg=="" then
+            if S.gg then pcall(call,S.gg,"closeTree") end
+            S.gg=nil;S.ggText=gg
+        elseif parent then
+            if not S.gg or S.ggParent~=parent then
+                if S.gg then pcall(call,S.gg,"closeTree") end
+                S.gg=newElement("UIElement")
+                call(S.gg,"setPriority",1000);passive(S.gg);call(parent,"addElement",S.gg)
+                call(S.gg,"SetAnchorsAndPosition",.5,.5,0,1,-250,250,145,175)
+                S.ggLabel=label(S.gg,0,0,500,26,20,0xffd200)
+                call(S.gg,"SetAlpha",1)
+                S.ggParent=parent
+            end
+            call(S.ggLabel,"setText",(gg:gsub("sat_[a-z]+_[a-z0-9]+",weaponName)))
+            S.ggText=gg
+        end
+    end
     -- large centred notice written by the GSC into zmm_big (boss wait)
     local big=read("zmm_big") or ""
     if big~=(S.bigText or "") then
@@ -568,6 +589,13 @@ do
     for name,value in pairs(FKEY) do hashed[tostring(H(name)):lower()]=value end
     for name,value in pairs(hashed) do FKEY[name]=value end
 end
+-- favorite key: right arrow / D-pad right (menu open only, so they keep their game use otherwise)
+local FAV={rightarrow=true,arrowright=true,right=true,button_dpad_right=true,dpad_right=true,pad_right=true,dpadright=true}
+do
+    local hashed={}
+    for name in pairs(FAV) do hashed[tostring(H(name)):lower()]=true end
+    for name in pairs(hashed) do FAV[name]=true end
+end
 local function navKey(button,key,uiBind)
     local b,k,u=tostring(button):lower(),tostring(key):lower(),tostring(uiBind):lower()
     if STICKS[b] or STICKS[k] or STICKS[u] then return nil end
@@ -597,6 +625,15 @@ local function install()
             if down==true then
                 S.hk=(S.hk or 0)+1
                 pcall(invoke,rawget(_G,"Dvar"),"SetDvarString",HD("zmm_hk"),fk..":"..S.hk)
+            end
+            return true
+        end
+        -- favorite key: "fav:<count>" on zmm_hk, the GSC adds or removes the highlighted row
+        local kb,kk,ku=tostring(button):lower(),tostring(key):lower(),tostring(uiBind):lower()
+        if S.enabled and S.visible==true and (tonumber(c) or 0)==0 and not (STICKS[kb] or STICKS[kk] or STICKS[ku]) and (FAV[kk] or FAV[kb]) then
+            if down==true then
+                S.hk=(S.hk or 0)+1
+                pcall(invoke,rawget(_G,"Dvar"),"SetDvarString",HD("zmm_hk"),"fav:"..S.hk)
             end
             return true
         end

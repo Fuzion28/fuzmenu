@@ -76,6 +76,7 @@ autoexec init()
     setdvar( @"zmm_ptimer", "0" );
     setdvar( @"zmm_recoil", "" );
     setdvar( @"zmm_hud", "" );
+    setdvar( @"zmm_gg", "" );
     setdvar( @"zmm_big", "" );
     setdvar( @"zmm_logo", "" );
     setdvar( @"hash_3c05d1d16d772c9e", -1 );
@@ -101,6 +102,7 @@ autoexec init()
     level.zmm_ee_jump_fn = &menu_ee_jump;
     level.zmm_teleport_fn = &menu_do_teleport;
     level.zmm_nav_point_fn = &menu_nav_point;
+    level.zmm_zm_build_fn = &menu_zm_build;
     level callback::add( #"player_spawned", &menu_on_spawned );
     level callback::add( #"player_death", &menu_on_death );
     level callback::add( #"player_disconnect", &menu_on_disconnect );
@@ -119,6 +121,7 @@ function menu_build_pages()
     level.zmm_toggle_keys = [];
 
     menu_add_page( "Main", "MAIN MENU", [
+        [ "Favorites", 2, "Favorites" ],
         [ "Player", 2, "Player" ],
         [ "OP Mode", 4, "god_all" ],
         [ "Teleports", 2, "Teleports" ],
@@ -697,6 +700,7 @@ function menu_build_pages()
         [ "Turn on power", 5, "power" ],
         [ "Open all doors", 5, "open_doors" ],
         [ "Start Boss Fight", 5, "boss_fight" ],
+        [ "Finish Boss Fight", 5, "boss_finish" ],
         [ "Skip to EE step", 10, "ui_ee_step", 0 ],
         [ "Restart Map", 5, "map_restart" ],
         [ "Mystery box", 2, "Box" ],
@@ -5015,6 +5019,10 @@ function menu_action( action_id )
     {
         menu_tip_action( action_id, menu_start_boss_fight() );
     }
+    else if ( action_id == "boss_finish" )
+    {
+        menu_tip_action( action_id, menu_finish_boss_fight() );
+    }
     else if ( action_id == "map_restart" )
     {
         if ( menu_is_host() )
@@ -6016,6 +6024,227 @@ function menu_start_boss_fight()
     }
     self thread menu_boss_followup( map );
     return 1;
+}
+
+// ends the running boss fight the way the game does, so its phases, death scene and quest end still play:
+// Mantis phases end on the pylons' charge / release flags, the other bosses copy each map's own skip / dev kill command
+function menu_finish_boss_fight()
+{
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_mantis" )
+    {
+        if ( namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "boss_fight_done" ) || !isdefined( level.var_d61ad599a05754c7 ) || !isalive( level.var_d61ad599a05754c7.var_469a4c6b75d9c6cd ) )
+        {
+            return 0;
+        }
+        // the map's dev "kill boss": its death callback plays the end of the fight and sets boss_fight_done
+        level.var_d61ad599a05754c7.var_469a4c6b75d9c6cd function_b2ab534731b73e2();
+        return 1;
+    }
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_ruby" )
+    {
+        if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "ruby_boss_fight_start" ) || namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "ruby_boss_fight_complete" ) )
+        {
+            return 0;
+        }
+        self thread menu_finish_astra();
+        return 1;
+    }
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_firefly" )
+    {
+        if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "firefly_boss_fight_start" ) || namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "firefly_boss_fight_complete" ) || !isdefined( level.var_302bd0b94da202e7 ) || !isalive( level.var_302bd0b94da202e7.entity ) )
+        {
+            return 0;
+        }
+        self thread menu_finish_hermes( level.var_302bd0b94da202e7.entity );
+        return 1;
+    }
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_hornet" )
+    {
+        if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "hornet_boss_fight_start" ) || namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "hornet_boss_fight_complete" ) || !isdefined( level.var_703ffbe28e244b74 ) || !isalive( level.var_703ffbe28e244b74.entity ) )
+        {
+            return 0;
+        }
+        self thread menu_finish_diana( level.var_703ffbe28e244b74.entity );
+        return 1;
+    }
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_locust" )
+    {
+        if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "boss_fight_start" ) || namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "boss_fight_end" ) || !isalive( level.var_99042256ee32a16d ) )
+        {
+            return 0;
+        }
+        level thread menu_finish_virgil();
+        return 1;
+    }
+    if ( isdefined( level.mapname ) && level.mapname == "zm_sat_scarab" )
+    {
+        // the boss rush can hold Caltheris without the EE field being set: take the boss AI then
+        boss = isdefined( level.var_4630353ece991c26 ) ? level.var_4630353ece991c26.entity : undefined;
+        if ( !isdefined( boss ) || !isalive( boss ) )
+        {
+            boss = menu_boss_list()[ 0 ];
+        }
+        if ( !isdefined( boss ) || !isalive( boss ) )
+        {
+            return 0;
+        }
+        self thread menu_finish_caltheris( boss );
+        return 1;
+    }
+    if ( menu_boss_list().size < 1 )
+    {
+        return 0;
+    }
+    self thread menu_finish_boss_loop();
+    return 1;
+}
+
+// Scarab: same steps as the map's own dev "kill boss" command (both immune phases, then the death)
+function menu_finish_caltheris( boss )
+{
+    self endon( "disconnect" );
+    boss endon( "death" );
+    boss.var_96eb4eec60875abc = 3;
+    boss.var_f9e26f943ef4abc = 1;
+    boss.var_1a3160838c7301bf = 1;
+    boss namespace_214d79f87f4bf971::function_a5f16b9e67155bbd( "fake_death", "death" );
+    boss notify( #"hash_5a0f08f4e3d91d6b" );
+    wait 1;
+    boss notify( #"hash_aa8f675504afb872" );
+    wait 1;
+    // the dev command hits once; the hit is lost while the shadow soul shield is up, so clear it and hit until the death scene runs
+    for ( self.zmm.boss_t = 0; self.zmm.boss_t < 60; self.zmm.boss_t++ )
+    {
+        boss function_786bb6aa1b76c7ee( "shadow_soul_immune", 0 );
+        boss.var_d2c854047ddd1dbc = 1;
+        boss dodamage( 10000, boss.var_78ed774afe1cc998, self );
+        wait 0.5;
+    }
+}
+
+// Ashes: the map's dev kill (health 2, hit for 1); repeated because the hit is lost while Hermes is immune
+function menu_finish_hermes( boss )
+{
+    self endon( "disconnect" );
+    boss endon( "death" );
+    for ( self.zmm.boss_t = 0; self.zmm.boss_t < 120; self.zmm.boss_t++ )
+    {
+        if ( boss.var_d2c854047ddd1dbc > 2 )
+        {
+            boss.var_d2c854047ddd1dbc = 2;
+        }
+        boss dodamage( 1, boss.origin, self );
+        wait 0.5;
+    }
+}
+
+// Hornet: the map's own boss skip (clear the shield, health 1, one hit), Diana then plays her death scene
+function menu_finish_diana( boss )
+{
+    self endon( "disconnect" );
+    boss endon( "death" );
+    // same as the map's skip: end the intro first, else the hit is ignored
+    if ( !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "hornet_boss_fight_intro_complete" ) )
+    {
+        level namespace_60b3bdcc70f79fc6::function_36488e0e5a90d20f( "hornet_boss_fight_intro_complete" );
+        wait 2;
+    }
+    boss.var_382b3e1f72536e3c = undefined;
+    boss.var_d2c854047ddd1dbc = 1;
+    wait 1;
+    boss dodamage( 999, boss.var_78ed774afe1cc998, self );
+}
+
+// Locust: Virgil cannot die, the fight ends once his health drops under the map's threshold
+function menu_finish_virgil()
+{
+    level endon( "game_ended" );
+    for ( level.zmm_virgil_t = 0; level.zmm_virgil_t < 240 && isalive( level.var_99042256ee32a16d ) && !namespace_60b3bdcc70f79fc6::function_f0bb112fe637e41c( "boss_fight_end" ); level.zmm_virgil_t++ )
+    {
+        level.var_99042256ee32a16d.var_d2c854047ddd1dbc = 1;
+        wait 0.5;
+    }
+}
+
+// boss AI, plus the boss entities the maps keep in their own fields (Hermes, Diana, Virgil)
+function menu_boss_list()
+{
+    bosses = [];
+    enemies = menu_zombie_list();
+    if ( isdefined( enemies ) )
+    {
+        foreach ( ai in enemies )
+        {
+            if ( isdefined( ai ) && isalive( ai ) && ai.var_e4312c2c1a4a2190 === "boss" )
+            {
+                bosses[ bosses.size ] = ai;
+            }
+        }
+    }
+    if ( isdefined( level.var_302bd0b94da202e7 ) && isalive( level.var_302bd0b94da202e7.entity ) )
+    {
+        bosses[ bosses.size ] = level.var_302bd0b94da202e7.entity;
+    }
+    if ( isdefined( level.var_703ffbe28e244b74 ) && isalive( level.var_703ffbe28e244b74.entity ) )
+    {
+        bosses[ bosses.size ] = level.var_703ffbe28e244b74.entity;
+    }
+    if ( isdefined( level.var_99042256ee32a16d ) && isalive( level.var_99042256ee32a16d ) )
+    {
+        bosses[ bosses.size ] = level.var_99042256ee32a16d;
+    }
+    return bosses;
+}
+
+// Astra: Uranus first (killed outright like the game's own skip, its death spawns Neptune), then Neptune through its own kill notify
+function menu_finish_astra()
+{
+    self endon( "disconnect" );
+    if ( !isalive( level.zombie_neptune ) )
+    {
+        foreach ( boss in menu_boss_list() )
+        {
+            boss function_b2ab534731b73e2();
+        }
+        for ( t = 0; t < 120 && !isalive( level.zombie_neptune ); t++ )
+        {
+            wait 0.5;
+        }
+        if ( !isalive( level.zombie_neptune ) )
+        {
+            return;
+        }
+        wait 1;
+    }
+    neptune = level.zombie_neptune;
+    neptune.health = 1;
+    neptune.var_c1a14ef3b76e22c5 = 3;
+    neptune notify( #"hash_7b331537b02c28cd" );
+}
+
+// invulnerable phases ignore the damage, the loop just waits them out; stops when no boss is left or after 5 minutes
+function menu_finish_boss_loop()
+{
+    self notify( "zmm_finish_boss" );
+    self endon( "zmm_finish_boss" );
+    self endon( "disconnect" );
+    level endon( "game_ended" );
+    for ( self.zmm.boss_t = 0; self.zmm.boss_t < 600; self.zmm.boss_t++ )
+    {
+        self.zmm.boss_ents = menu_boss_list();
+        if ( self.zmm.boss_ents.size < 1 )
+        {
+            return;
+        }
+        foreach ( boss in self.zmm.boss_ents )
+        {
+            if ( isdefined( boss ) && isalive( boss ) )
+            {
+                boss dodamage( 1000000, boss.origin, self );
+            }
+        }
+        wait 0.5;
+    }
 }
 
 // the boss steps wait on a vote, a cinematic or a prompt: do what the game would, or bring the player to the prompt
@@ -7612,6 +7841,7 @@ function menu_hk_loop()
 {
     self endon( "disconnect" );
     state = self.zmm;
+    menu_fav_page();
     while ( isdefined( self.zmm ) && state.running )
     {
         wait 0.05;
@@ -7621,7 +7851,14 @@ function menu_hk_loop()
         }
         state.hk_key = strtok( getdvar( @"zmm_hk" ), ":" )[ 0 ];
         setdvar( @"zmm_hk", "0" );
-        if ( state.is_open )
+        if ( state.hk_key == "fav" )
+        {
+            if ( state.is_open )
+            {
+                menu_fav_toggle();
+            }
+        }
+        else if ( state.is_open )
         {
             menu_hk_bind( state.hk_key );
         }
@@ -7738,6 +7975,86 @@ function menu_hk_page()
     }
     state.hk_items[ state.hk_items.size ] = [ "Back", 1, "" ];
     menu_add_page( "Shortcuts", "SHORTCUTS: HIGHLIGHT ANY OPTION, PRESS F1-F12", state.hk_items );
+}
+
+// ---------------------------------------------------------------- favorites (Favorites page, first row of Main)
+// zm_mod_menu_post.lua writes "fav:<count>" to zmm_hk on right arrow / D-pad right while the menu is open: adds the highlighted row, or removes it.
+// Saved as fav1..fav8 in kronos/fuzmenu/favorites.json, same text as a shortcut.
+// shortcut: pages are shared, so co-op guests see the host's favorites too; give each player a page if guests mind
+
+function menu_fav_toggle()
+{
+    state = self.zmm;
+    state.fav_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
+    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" ) ) )
+    {
+        menu_notify( "This row cannot be a favorite", 0 );
+        return;
+    }
+    if ( state.page == "Favorites" && state.cursor < level.zmm_fav_vals.size )
+    {
+        state.fav_val = level.zmm_fav_vals[ state.cursor ];
+    }
+    else
+    {
+        state.fav_val = state.fav_entry[ 1 ] + "~" + state.fav_entry[ 0 ] + "~" + menu_hk_enc( state.fav_entry[ 2 ] ) + "~" + menu_hk_enc( state.fav_entry[ 3 ] );
+    }
+    nengine_store_load( "fuzmenu", "favorites" );
+    state.fav_free = 0;
+    for ( state.fav_i = 1; state.fav_i <= 8; state.fav_i++ )
+    {
+        state.fav_old = nengine_store_get( "fuzmenu", "fav" + state.fav_i );
+        if ( state.fav_old === state.fav_val )
+        {
+            nengine_store_set( "fuzmenu", "fav" + state.fav_i, "" );
+            nengine_store_save( "fuzmenu", "favorites" );
+            menu_fav_page();
+            menu_notify( "Removed from favorites", 1 );
+            return;
+        }
+        if ( state.fav_free == 0 && ( !isstring( state.fav_old ) || state.fav_old == "" ) )
+        {
+            state.fav_free = state.fav_i;
+        }
+    }
+    if ( state.fav_free == 0 )
+    {
+        menu_notify( "Favorites full (8): right arrow on one removes it", 0 );
+        return;
+    }
+    nengine_store_set( "fuzmenu", "fav" + state.fav_free, state.fav_val );
+    nengine_store_save( "fuzmenu", "favorites" );
+    menu_fav_page();
+    menu_notify( "Added to favorites", 1 );
+}
+
+// rebuilds the Favorites page from the saved favorites
+function menu_fav_page()
+{
+    level.zmm_fav_vals = [];
+    level.zmm_fav_items = [];
+    nengine_store_load( "fuzmenu", "favorites" );
+    for ( level.zmm_fav_i = 1; level.zmm_fav_i <= 8; level.zmm_fav_i++ )
+    {
+        level.zmm_fav_v = nengine_store_get( "fuzmenu", "fav" + level.zmm_fav_i );
+        if ( !isstring( level.zmm_fav_v ) || level.zmm_fav_v == "" || strtok( level.zmm_fav_v, "~" ).size < 4 )
+        {
+            continue;
+        }
+        level.zmm_fav_p = strtok( level.zmm_fav_v, "~" );
+        level.zmm_fav_vals[ level.zmm_fav_vals.size ] = level.zmm_fav_v;
+        level.zmm_fav_items[ level.zmm_fav_items.size ] = [ level.zmm_fav_p[ 1 ], int( level.zmm_fav_p[ 0 ] ), menu_hk_dec( level.zmm_fav_p[ 2 ] ), menu_hk_dec( level.zmm_fav_p[ 3 ] ) ];
+    }
+    level.zmm_fav_items[ level.zmm_fav_items.size ] = [ "Back", 1, "" ];
+    menu_add_page( "Favorites", "FAVORITES: RIGHT ARROW ADDS OR REMOVES", level.zmm_fav_items );
+    if ( isdefined( self.zmm ) && self.zmm.page == "Favorites" && self.zmm.cursor >= level.zmm_fav_items.size )
+    {
+        self.zmm.cursor = level.zmm_fav_items.size - 1;
+    }
+    if ( isdefined( self.zmm ) && istrue( self.zmm.is_open ) )
+    {
+        menu_render();
+    }
 }
 
 // a row of the Shortcuts page: unbinds that key
