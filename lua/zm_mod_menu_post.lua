@@ -263,26 +263,41 @@ local function bossBar(value,paused)
     place(S.bossFill,14,31,math.max(1,math.floor((BOSS_W-28)*p/100)),8)
 end
 
--- round number prompt while zmm_type is "1"; keys are read in the QueueInput wrapper below
+-- typed EE step's name, from the "|" list GSC sends after "s<count>:" (the speedrun splits)
+local function eeName(buf)
+    local i=tonumber(buf or "")
+    if not i or not S.typeMap then return "" end
+    local k=0
+    for n in S.typeMap:gmatch("[^|]+") do k=k+1;if k==i then return n end end
+    return ""
+end
+
+-- round / EE step number prompt while zmm_type is not "0"; keys are read in the QueueInput wrapper below
 local function typePrompt(on,paused)
     if not on or paused then
         if S.typeBox then pcall(call,S.typeBox,"closeTree") end
-        S.typeBox=nil;return
+        S.typeBox=nil;S.typeName=nil;return
     end
     local parent=displayParent()
     if not parent or (S.typeBox and S.typeParent==parent) then return end
     if S.typeBox then pcall(call,S.typeBox,"closeTree") end
     local box=newElement("UIElement")
     call(box,"setPriority",1001);passive(box);call(parent,"addElement",box)
-    call(box,"SetAnchorsAndPosition",.5,.5,.5,.5,-190,190,40,124)
-    rectangle(box,0,0,380,84,PANEL,.95)
-    rectangle(box,0,82,380,2,S.theme or THEMES[1],1)
-    call(label(box,16,10,348,16,13,DIM),"setText","JUMP TO ROUND")
+    -- zmm_type "s<count>:<name|name..>" is the EE step prompt (one more line: the typed step's name), "1" the round prompt
+    local steps,map=S.typeMode:match("^s(%d+):?(.*)$")
+    S.typeMap=map
+    local h=steps and 102 or 84
+    call(box,"SetAnchorsAndPosition",.5,.5,.5,.5,-190,190,40,40+h)
+    rectangle(box,0,0,380,h,PANEL,.95)
+    rectangle(box,0,h-2,380,2,S.theme or THEMES[1],1)
+    call(label(box,16,10,348,16,13,DIM),"setText",steps and "JUMP TO EASTER EGG STEP" or "JUMP TO ROUND")
     S.typeText=label(box,16,28,348,30,26,0xffffff,true)
-    call(label(box,16,62,348,16,12,DIM),"setText","272 = that round    +5 / -5 = from now    Enter / Esc")
+    S.typeName=steps and label(box,16,60,348,16,14,S.theme or THEMES[1],true) or nil
+    call(label(box,16,h-22,348,16,12,DIM),"setText",steps and ("Step 1 to "..steps.."  (last = boss)    Enter / Esc") or "272 = that round    +5 / -5 = from now    Enter / Esc")
     call(box,"SetAlpha",1)
     S.typeBox=box;S.typeParent=parent
     call(S.typeText,"setText",(S.typeBuf or "").."_")
+    if S.typeName then call(S.typeName,"setText",eeName(S.typeBuf)) end
 end
 local function typeInput(t)
     local buf=S.typeBuf or ""
@@ -295,6 +310,7 @@ local function typeInput(t)
     elseif #buf<5 then buf=buf..t end
     S.typeBuf=buf
     if S.typeText then call(S.typeText,"setText",buf.."_") end
+    if S.typeName then call(S.typeName,"setText",eeName(buf)) end
 end
 
 -- shortcut: controller labels assume the default layout (Xbox names), upgrade if the game exposes the player's binds to Lua
@@ -458,7 +474,8 @@ local function tick()
     end
     local paused=invoke(get(rawget(_G,"LUI"),"FlowManager"),"IsInStack",H("MPPauseMenu"))==true
     pcall(bossBar,read("zmm_boss") or "",paused)
-    local typing=read("zmm_type")=="1"
+    S.typeMode=read("zmm_type") or "0"
+    local typing=S.typeMode~="0" and S.typeMode~=""
     if typing and not S.typing then S.typeBuf="";S.typeSent=false end
     S.typing=typing
     pcall(typePrompt,typing,paused)

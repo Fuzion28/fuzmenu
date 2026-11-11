@@ -35,6 +35,7 @@ function ui_wait_menu()
         level.zmm_ext_on = [];
     }
     level.zmm_ext[ "ui_type" ] = &ui_type_round;
+    level.zmm_ext[ "ui_ee_step" ] = &ui_type_ee;
     level.zmm_ext[ "ui_spot_save" ] = &ui_spot_save;
     level.zmm_ext[ "ui_spot_go" ] = &ui_spot_go;
     level.zmm_on_render = &ui_on_render;
@@ -121,33 +122,9 @@ function ui_boss_text()
 
 // ---------------------------------------------------------------- typed round jump
 
-// the Lua shows the typed text while zmm_type is "1" and writes zmm_typed "ok|<text>" on Enter or "x" on Esc
 function ui_type_round( unused )
 {
-    if ( !istrue( self [[ level.zmm_is_host_fn ]]() ) )
-    {
-        self [[ level.zmm_notify_fn ]]( "Host only", 0 );
-        return;
-    }
-    if ( istrue( level.ui_typing ) )
-    {
-        return;
-    }
-    level.ui_typing = 1;
-    setdvar( @"zmm_typed", "" );
-    setdvar( @"zmm_type", "1" );
-    level.ui_ty_left = 600;
-    level.ui_ty_got = "";
-    while ( level.ui_ty_left > 0 && level.ui_ty_got == "" && isdefined( self ) )
-    {
-        wait 0.05;
-        level.ui_ty_left--;
-        level.ui_ty_got = getdvar( @"zmm_typed" );
-    }
-    setdvar( @"zmm_type", "0" );
-    setdvar( @"zmm_typed", "" );
-    level.ui_typing = 0;
-    if ( !isdefined( self ) )
+    if ( !self ui_type_wait( "1" ) || !isdefined( self ) )
     {
         return;
     }
@@ -161,6 +138,61 @@ function ui_type_round( unused )
         return;
     }
     self [[ level.zmm_notify_fn ]]( "Round jump", self [[ level.zmm_jump_round_fn ]]( level.ui_ty_target ) );
+}
+
+// typed EE step: the speedrun splits after the first, named in the prompt
+function ui_type_ee( unused )
+{
+    level.ui_ee_n = self [[ level.zmm_ee_steps_fn ]]();
+    if ( level.ui_ee_n < 1 )
+    {
+        self [[ level.zmm_notify_fn ]]( "EE step (not on this map)", 0 );
+        return;
+    }
+    if ( !self ui_type_wait( "s" + level.ui_ee_n + ":" + self.zmm.ee_names ) || !isdefined( self ) )
+    {
+        return;
+    }
+    self.ui_ty_parts = strtok( level.ui_ty_got, "|" );
+    if ( self.ui_ty_parts.size < 2 || !( self.ui_ty_parts[ 0 ] == "ok" ) )
+    {
+        if ( !( level.ui_ty_got == "x" ) )
+        {
+            self [[ level.zmm_notify_fn ]]( "EE step", 0 );
+        }
+        return;
+    }
+    self [[ level.zmm_notify_fn ]]( "EE step", self [[ level.zmm_ee_jump_fn ]]( int( self.ui_ty_parts[ 1 ] ) ) );
+}
+
+// the Lua shows the typed text while zmm_type is not "0" ("1" round, "s<count>:<name|name..>" EE step)
+// and writes zmm_typed "ok|<text>" on Enter or "x" on Esc; the answer is left in level.ui_ty_got
+function ui_type_wait( mode )
+{
+    if ( !istrue( self [[ level.zmm_is_host_fn ]]() ) )
+    {
+        self [[ level.zmm_notify_fn ]]( "Host only", 0 );
+        return 0;
+    }
+    if ( istrue( level.ui_typing ) )
+    {
+        return 0;
+    }
+    level.ui_typing = 1;
+    setdvar( @"zmm_typed", "" );
+    setdvar( @"zmm_type", mode );
+    level.ui_ty_left = 600;
+    level.ui_ty_got = "";
+    while ( level.ui_ty_left > 0 && level.ui_ty_got == "" && isdefined( self ) )
+    {
+        wait 0.05;
+        level.ui_ty_left--;
+        level.ui_ty_got = getdvar( @"zmm_typed" );
+    }
+    setdvar( @"zmm_type", "0" );
+    setdvar( @"zmm_typed", "" );
+    level.ui_typing = 0;
+    return 1;
 }
 
 // "ok|272" absolute, "ok|+5" / "ok|-5" relative to the current round; 0 when nothing valid was typed

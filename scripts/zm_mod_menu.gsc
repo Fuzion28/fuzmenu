@@ -96,6 +96,8 @@ autoexec init()
     level.zmm_jump_round_fn = &menu_jump_round;
     level.zmm_round_fn = &menu_current_round;
     level.zmm_is_host_fn = &menu_is_host;
+    level.zmm_ee_steps_fn = &menu_ee_steps;
+    level.zmm_ee_jump_fn = &menu_ee_jump;
     level.zmm_teleport_fn = &menu_do_teleport;
     level.zmm_nav_point_fn = &menu_nav_point;
     level callback::add( #"player_spawned", &menu_on_spawned );
@@ -691,6 +693,7 @@ function menu_build_pages()
         [ "Turn on power", 5, "power" ],
         [ "Open all doors", 5, "open_doors" ],
         [ "Start Boss Fight", 5, "boss_fight" ],
+        [ "Skip to EE step", 10, "ui_ee_step", 0 ],
         [ "Restart Map", 5, "map_restart" ],
         [ "Mystery box", 2, "Box" ],
         [ "Back", 1, "" ]
@@ -2711,6 +2714,65 @@ function menu_sr_practice()
     sr = level.zmm_sr;
     menu_sr_show();
     wait 1;
+    menu_sr_split_setup();
+    wait 2;
+    nengine_store_load( "fuzmenu", "speedrun" );
+    sr.pos_str = nengine_store_get( "fuzmenu", sr.pkey + sr.practice );
+    if ( isdefined( sr.pos_str ) && sr.pos_str != "" && strtok( sr.pos_str, "," ).size >= 4 && !( sr.map == "zm_sat_mantis" && sr.practice == 6 ) && ( sr.practice != 5 || sr.map == "zm_sat_mantis" ) )
+    {
+        sr.parts = strtok( sr.pos_str, "," );
+        sr.host menu_do_teleport( ( int( sr.parts[ 0 ] ), int( sr.parts[ 1 ] ), int( sr.parts[ 2 ] ) ), ( 0, int( sr.parts[ 3 ] ), 0 ) );
+    }
+    else
+    {
+        menu_sr_default_tp();
+    }
+    sr.index = sr.practice - 1;
+    wait 0.5;
+    menu_sr_wait_move();
+    sr.start = gettime();
+    iprintlnbold( "^3Practice split " + sr.practice + ": ^7" + sr.names[ sr.index ] );
+    while ( !menu_sr_done( sr.index ) )
+    {
+        waitframe();
+    }
+    sr.seg = gettime() - sr.start;
+    if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
+    {
+        sr.host menu_sr_store_pos( sr.practice + 1 );
+    }
+    iprintlnbold( "^2Split " + sr.practice + " ^7" + sr.names[ sr.index ] + "  ^3" + menu_sr_time( sr.seg ) + menu_sr_seg_delta() );
+}
+
+// split sr.practice: quest part, then doors, loadout and wonder weapon (boss splits start the boss)
+function menu_sr_split_setup()
+{
+    menu_sr_split_quests();
+    sr = level.zmm_sr;
+    if ( isdefined( sr.lo ) && !( ( sr.map == "zm_sat_mantis" || sr.map == "zm_sat_hornet" || sr.map == "zm_sat_scarab" || sr.map == "zm_sat_locust" ) && sr.practice == 1 ) )
+    {
+        if ( sr.practice == 5 && sr.map != "zm_sat_ruby" && sr.map != "zm_sat_mantis" && sr.map != "zm_sat_hornet" )
+        {
+            sr.host menu_start_boss_fight();
+        }
+        menu_open_doors();
+        wait 1;
+        menu_sr_loadout( sr.lo[ sr.practice - 1 ] );
+        if ( sr.map == "zm_sat_mantis" )
+        {
+            menu_sr_mantis_start();
+        }
+        else
+        {
+            menu_sr_ww_start();
+        }
+    }
+}
+
+// side quests the split needs done, main quest jumped to split sr.practice
+function menu_sr_split_quests()
+{
+    sr = level.zmm_sr;
     if ( sr.map == "zm_sat_ruby" )
     {
         menu_sr_finish_quest( #"ruby_pap", "ruby_papq_complete" );
@@ -2805,51 +2867,6 @@ function menu_sr_practice()
             level thread zm_quest::function_80abdea0cd4c89a7( sr.mq, sr.jumps[ sr.practice - 2 ] );
         }
     }
-    if ( isdefined( sr.lo ) && !( ( sr.map == "zm_sat_mantis" || sr.map == "zm_sat_hornet" || sr.map == "zm_sat_scarab" || sr.map == "zm_sat_locust" ) && sr.practice == 1 ) )
-    {
-        if ( sr.practice == 5 && sr.map != "zm_sat_ruby" && sr.map != "zm_sat_mantis" && sr.map != "zm_sat_hornet" )
-        {
-            sr.host menu_start_boss_fight();
-        }
-        menu_open_doors();
-        wait 1;
-        menu_sr_loadout( sr.lo[ sr.practice - 1 ] );
-        if ( sr.map == "zm_sat_mantis" )
-        {
-            menu_sr_mantis_start();
-        }
-        else
-        {
-            menu_sr_ww_start();
-        }
-    }
-    wait 2;
-    nengine_store_load( "fuzmenu", "speedrun" );
-    sr.pos_str = nengine_store_get( "fuzmenu", sr.pkey + sr.practice );
-    if ( isdefined( sr.pos_str ) && sr.pos_str != "" && strtok( sr.pos_str, "," ).size >= 4 && !( sr.map == "zm_sat_mantis" && sr.practice == 6 ) && ( sr.practice != 5 || sr.map == "zm_sat_mantis" ) )
-    {
-        sr.parts = strtok( sr.pos_str, "," );
-        sr.host menu_do_teleport( ( int( sr.parts[ 0 ] ), int( sr.parts[ 1 ] ), int( sr.parts[ 2 ] ) ), ( 0, int( sr.parts[ 3 ] ), 0 ) );
-    }
-    else
-    {
-        menu_sr_default_tp();
-    }
-    sr.index = sr.practice - 1;
-    wait 0.5;
-    menu_sr_wait_move();
-    sr.start = gettime();
-    iprintlnbold( "^3Practice split " + sr.practice + ": ^7" + sr.names[ sr.index ] );
-    while ( !menu_sr_done( sr.index ) )
-    {
-        waitframe();
-    }
-    sr.seg = gettime() - sr.start;
-    if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
-    {
-        sr.host menu_sr_store_pos( sr.practice + 1 );
-    }
-    iprintlnbold( "^2Split " + sr.practice + " ^7" + sr.names[ sr.index ] + "  ^3" + menu_sr_time( sr.seg ) + menu_sr_seg_delta() );
 }
 
 // Ashes: Tessie stage 3 (lasers), or stage 4 (turret) for the challenges
@@ -5849,6 +5866,54 @@ function menu_drop_all()
         level thread menu_do_drop( names[ i ], self.origin + offset + ( 0, 0, 40 ) );
         wait 0.2;
     }
+}
+
+// EE steps = the speedrun splits after the first (Practice page): fills self.zmm.ee_names ("a|b|c"), returns their count, 0 on maps without splits
+function menu_ee_steps()
+{
+    self.zmm.ee_names = "";
+    if ( !isdefined( level.zmm_sr ) || !isdefined( level.zmm_sr.names ) )
+    {
+        return 0;
+    }
+    for ( i = 1; i < level.zmm_sr.names.size; i++ )
+    {
+        if ( i > 1 )
+        {
+            self.zmm.ee_names += "|";
+        }
+        self.zmm.ee_names += level.zmm_sr.names[ i ];
+    }
+    return level.zmm_sr.names.size - 1;
+}
+
+// step n (1-based) jumps the main quest to speedrun split n + 1 in place: quests only, no restart, loadout, weapon, timer or teleport (the boss start brings its own)
+function menu_ee_jump( n )
+{
+    sr = level.zmm_sr;
+    if ( !menu_is_host() || n < 1 || n > self menu_ee_steps() || istrue( sr.ee_busy ) )
+    {
+        return 0;
+    }
+    sr.ee_busy = 1;
+    level thread menu_ee_run( n + 1 );
+    return 1;
+}
+
+// shortcut: borrows sr.practice while the quests are set (the split writer shows practice for that moment), add a split argument if that shows
+function menu_ee_run( split )
+{
+    sr = level.zmm_sr;
+    sr.ee_prev = sr.practice;
+    sr.practice = split;
+    menu_sr_split_quests();
+    // the last split is the boss: hornet and locust start it in the quest part
+    if ( split == sr.names.size && sr.map != "zm_sat_hornet" && sr.map != "zm_sat_locust" )
+    {
+        sr.host menu_start_boss_fight();
+    }
+    sr.practice = sr.ee_prev;
+    sr.ee_busy = 0;
 }
 
 // jumps the map's main quest to its boss step: earlier steps run their own "skipped" setup
