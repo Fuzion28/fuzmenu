@@ -41,7 +41,8 @@ function fun_wait_menu()
     level.fun_mode = "";
     level.fun_vehs = [];
     level.fun_gun_pages = [ "W_ar", "W_sm", "W_lm", "W_sh", "W_dm", "W_sn", "W_pi" ];
-    level.fun_ladder_pages = [ "W_pi", "W_sm", "W_sh", "W_ar", "W_lm", "W_dm", "W_sn", "W_la" ];
+    // a W6_ (BO6) page joins the class of the BO7 page before it
+    level.fun_ladder_pages = [ "W_pi", "W6_pi", "W_sm", "W6_sm", "W_sh", "W6_sh", "W_ar", "W6_ar", "W_lm", "W6_lm", "W_dm", "W6_dm", "W_sn", "W6_sn", "W_la", "W6_la" ];
     level.fun_pu_names = [ "double_points", "insta_kill", "full_ammo", "full_armor", "full_power", "free_perk", "fire_sale", "bonus_points_team" ];
     level.fun_rush_types = [ "zombie_abom", "zombie_amalgam", "zombie_mimic", "zombie_karkinos", "zombie_orion", "zombie_loom", "zombie_hellhound" ];
     level.fun_groups = [];
@@ -521,6 +522,11 @@ function fun_give_gun( name )
         }
         wait 0.1;
     }
+    // a BO6 gun whose model never loads would be given empty
+    if ( issubstr( self.zmm.fun_gname, "t10_" ) && !self hasloadedviewweapons( [ self.zmm.fun_wnew ] ) )
+    {
+        return;
+    }
     self.zmm.fun_wold = self getcurrentweapon();
     if ( isdefined( self.zmm.fun_wold ) && !isnullweapon( self.zmm.fun_wold ) && !self hasweapon( self.zmm.fun_wnew ) && isdefined( self.zmm.fun_wold.basename ) && !issubstr( self.zmm.fun_wold.basename, "_me_" ) )
     {
@@ -786,9 +792,13 @@ function fun_zombie_dead( params )
     level.fun_killer = params.var_917e21c98d80255e;
     if ( isplayer( level.fun_killer ) && isdefined( level.fun_killer.zmm ) )
     {
+        // melee kills do not count: the ladder is guns only
         if ( level.fun_mode == "gg" )
         {
-            level.fun_killer fun_gg_kill();
+            if ( !( params.var_f5a880abf0b199dc === "MOD_MELEE" ) && !( isdefined( params.var_b575eda3d8d8533b ) && isdefined( params.var_b575eda3d8d8533b.basename ) && issubstr( params.var_b575eda3d8d8533b.basename, "_me_" ) ) )
+            {
+                level.fun_killer fun_gg_kill();
+            }
         }
         else if ( level.fun_mode == "oitc" && isdefined( level.fun_killer.zmm.fun_w ) )
         {
@@ -927,7 +937,10 @@ function fun_gg_start( key )
             {
                 continue;
             }
-            level.fun_lg_start = level.fun_ladder.size;
+            if ( getsubstr( page_id, 0, 3 ) != "W6_" )
+            {
+                level.fun_lg_start = level.fun_ladder.size;
+            }
             foreach ( entry in level.zmm_pages[ page_id ].items )
             {
                 if ( entry[ 1 ] == 8 )
@@ -949,8 +962,7 @@ function fun_gg_start( key )
         level.fun_mode = "";
         return;
     }
-    level.fun_gg_need = 3;
-    fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + level.fun_gg_need + " kills each" );
+    fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + fun_gg_need( 0 ) + " kills to start, +1 every 5 guns" );
     foreach ( p in level.players )
     {
         if ( isdefined( p ) && isdefined( p.zmm ) )
@@ -971,8 +983,14 @@ function fun_gg_hud()
 {
     if ( [[ level.zmm_is_host_fn ]]() )
     {
-        setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + "   Kills " + self.zmm.fun_gg_kills + "/" + level.fun_gg_need );
+        setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + "   Kills " + self.zmm.fun_gg_kills + "/" + fun_gg_need( self.zmm.fun_gg_lvl ) );
     }
+}
+
+// kills to move on from gun lvl: more the further up the ladder
+function fun_gg_need( lvl )
+{
+    return 10 + int( lvl / 5 );
 }
 
 // self = player
@@ -984,7 +1002,7 @@ function fun_gg_kill()
         self.zmm.fun_gg_kills = 0;
     }
     self.zmm.fun_gg_kills++;
-    if ( self.zmm.fun_gg_kills < level.fun_gg_need )
+    if ( self.zmm.fun_gg_kills < fun_gg_need( self.zmm.fun_gg_lvl ) )
     {
         self fun_gg_hud();
         return;
@@ -1005,14 +1023,36 @@ function fun_gg_kill()
 }
 
 // the player's Gunsmith zombie build of that gun when there is one (zm_mod_menu's menu_zm_build), else the stock gun
+// the PaP tier and rarity of the held gun carry over, the other gun slots are emptied
 function fun_gg_give( name )
 {
+    self notify( #"fun_gg_give" );
+    self endon( #"fun_gg_give" );
     self endon( #"disconnect" );
+    self [[ level.zmm_gg_read_fn ]]();
+    self.zmm.fun_w = undefined;
     if ( isdefined( level.zmm_zm_build_fn ) && isdefined( name ) && istrue( self [[ level.zmm_zm_build_fn ]]( name ) ) )
     {
+        self.zmm.fun_w = self.zmm.build_gun;
+    }
+    else
+    {
+        self fun_give_gun( name );
+    }
+    if ( !isdefined( self.zmm.fun_w ) )
+    {
+        // a BO6 gun this map cannot load: go on to the next one
+        if ( isdefined( name ) && issubstr( name, "t10_" ) && self.zmm.fun_gg_lvl + 1 < level.fun_ladder.size )
+        {
+            self.zmm.fun_gg_lvl++;
+            self fun_gg_hud();
+            self thread fun_gg_give( level.fun_ladder[ self.zmm.fun_gg_lvl ] );
+        }
         return;
     }
-    self fun_give_gun( name );
+    self fun_roul_strip();
+    wait 0.5;
+    self [[ level.zmm_gg_apply_fn ]]();
 }
 
 // One in the Chamber: a pistol with one bullet, every bullet kills, every kill gives a bullet back

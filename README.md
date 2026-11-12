@@ -32,7 +32,7 @@ Map locations, Return to spawn, Unstuck
 - **BO6 weapons**, **New weapons**, **Scorestreak weapons**, **Dead Ops Arcade guns**
 - My loadout primary / secondary, Random weapon, Remove held weapon
 - **Use my zombie build**: weapons come with your Gunsmith zombie build (stock if you have none)
-- Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore, Void Claw and Void Talon (upgraded) on Rex Infernus
+- Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore, Void Claw and Void Talon (upgraded) on Rex Infernus (filled to the max), Viking helmets on Totenreich (fishing luck, gnome form, more power-ups, frost blast)
 
 **Wonder weapons**
 Necrofluid (Ashes, Rex), Nekomancer (Kowakujo), Jotunn Star (Totenreich), Blundergat (Paradox), Sundergat (Paradox), LGM-1 (Astra), Warden's Blight (Rex), Ray Gun, Ray Gun Mk2
@@ -98,7 +98,7 @@ Mystery box: Free, Faster, Lock the box in place
 
 ## 🎮 Game modes & rules
 **Game modes**
-Gun Game (your zombie builds when you have one), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
+Gun Game (BO6 guns too, keeps your PaP and rarity, 10 kills per gun and more further up, melee kills do not count), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
 
 **Match rules**
 Headshots only, Melee only, Tough zombies x2 / x5 / x10, Random weapon every round, Heal + revive at round end, Rest break 10 s / 30 s, Super sprinters from round 20 / 40

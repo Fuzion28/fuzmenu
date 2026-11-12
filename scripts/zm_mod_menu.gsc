@@ -103,6 +103,8 @@ autoexec init()
     level.zmm_teleport_fn = &menu_do_teleport;
     level.zmm_nav_point_fn = &menu_nav_point;
     level.zmm_zm_build_fn = &menu_zm_build;
+    level.zmm_gg_read_fn = &menu_gg_read;
+    level.zmm_gg_apply_fn = &menu_gg_apply;
     level callback::add( #"player_spawned", &menu_on_spawned );
     level callback::add( #"player_death", &menu_on_death );
     level callback::add( #"player_disconnect", &menu_on_disconnect );
@@ -368,6 +370,15 @@ function menu_build_pages()
     menu_bo6_page( "W6_me", "MELEE", [ "t10_me_p16_bat", "t10_me_p30_cleaver", "t10_me_p31_drill", "t10_me_p36_skateboard", "t10_me_p37_katanas", "t10_me_p38_sais", "t10_me_p39_nunchaku", "t10_me_p40_bostaff", "t10_me_p48_keene", "t10_me_p51_pickaxe", "t10_me_p55_bgloves", "t10_me_p59_csaw" ] );
     menu_bo6_page( "W6_sl", "SPECIALS", [ "t10_sl_p29_goslo", "t10_sl_p35_blauncher", "t10_sl_p44_napa", "t10_sl_p58_wand" ] );
 
+    // zm_helmets_locust.gsc (Totenreich only) puts it on with the map's own pickup
+    menu_add_page( "Helmets", "VIKING HELMETS", [
+        [ "Helmet 1 (blue, fishing luck)", 9, "helmet", "01" ],
+        [ "Helmet 2 (gnome form: dive or go prone)", 9, "helmet", "02" ],
+        [ "Helmet 3 (yellow, more power-ups)", 9, "helmet", "03" ],
+        [ "Helmet 4 (white, frost blast on slide)", 9, "helmet", "04" ],
+        [ "Back", 1, "" ]
+    ] );
+
     menu_add_page( "Equip", "GIVE EQUIPMENT", [
         [ "Kazimir (black hole)", 9, "equip_t", "equip_blackhole_bomb" ],
         [ "Decoy", 9, "equip_t", "equip_decoy" ],
@@ -378,6 +389,7 @@ function menu_build_pages()
         [ "Smoke", 9, "equip_t", "equip_smoke" ],
         [ "Void Claw (Rex)", 9, "equip_t", "equip_grappling_hook" ],
         [ "Void Talon (upgraded, Rex)", 9, "equip_t", "equip_grappling_hook_upgraded" ],
+        [ "Viking helmets (Totenreich)", 2, "Helmets" ],
         [ "Frag grenade", 9, "equip_l", "equip_frag" ],
         [ "Semtex", 9, "equip_l", "equip_semtex" ],
         [ "Molotov", 9, "equip_l", "equip_molotov" ],
@@ -865,6 +877,21 @@ function menu_give_equip( action, ref )
         self.zmm.equip_slot = "primary";
     }
     self namespace_c33cbcea986a02aa::function_f44eebdbe7ad3e81( ref, self.zmm.equip_slot );
+    // the game gives the starting count (often 1): fill up to the max
+    self.zmm.equip_max = self namespace_c33cbcea986a02aa::function_75174cf5a80f1202( ref );
+    if ( isdefined( self.equipment ) && self.equipment[ self.zmm.equip_slot ] === ref && isdefined( self.zmm.equip_max ) && self.zmm.equip_max > 1 )
+    {
+        self namespace_c33cbcea986a02aa::function_fc6818a92fc54458( ref, self.zmm.equip_max );
+    }
+    // Rex pedestal: the Void Talon only breaks the seals with this flag on, the plain Void Claw clears it
+    if ( ref == "equip_grappling_hook_upgraded" )
+    {
+        self.var_32e68c63905a0787 = 1;
+    }
+    else if ( ref == "equip_grappling_hook" )
+    {
+        self.var_32e68c63905a0787 = undefined;
+    }
     // a ref the map did not load is skipped by the game: report it as failed
     return isdefined( self.equipment ) && self.equipment[ self.zmm.equip_slot ] === ref;
 }
@@ -5525,6 +5552,38 @@ function menu_rarity( rarity )
     return 5;
 }
 
+// Gun Game (zm_mod_menu_fun's fun_gg_give): the next gun keeps the PaP tier and rarity of the held one
+function menu_gg_read()
+{
+    self.zmm.gg_w = self getcurrentweapon();
+    self.zmm.gg_pap = 0;
+    self.zmm.gg_rar = 0;
+    if ( !isdefined( self.zmm.gg_w ) || isnullweapon( self.zmm.gg_w ) )
+    {
+        return;
+    }
+    self.zmm.gg_pap = menu_pap_level( self.zmm.gg_w );
+    self.zmm.gg_i = menu_weapon_primary_index( self, self.zmm.gg_w );
+    if ( isdefined( self.zmm.gg_i ) && isdefined( self.var_1a87a9e7cf39ff69 ) && isdefined( self.var_1a87a9e7cf39ff69[ self.zmm.gg_i ] ) && isdefined( self.var_1a87a9e7cf39ff69[ self.zmm.gg_i ].rarity ) )
+    {
+        self.zmm.gg_rar = self.var_1a87a9e7cf39ff69[ self.zmm.gg_i ].rarity;
+    }
+}
+
+function menu_gg_apply()
+{
+    // PaP first: it can rebuild the gun, the rarity goes on the final one
+    if ( self.zmm.gg_pap > 0 )
+    {
+        self menu_pap( self.zmm.gg_pap );
+        wait 0.5;
+    }
+    if ( self.zmm.gg_rar > 0 )
+    {
+        self menu_rarity( self.zmm.gg_rar );
+    }
+}
+
 function menu_weapon_primary_index( player, weapon )
 {
     if ( !isdefined( player.primaryinventory ) )
@@ -6564,6 +6623,14 @@ function menu_param( label, action, value )
     {
         ok = menu_give_equip( action, value );
     }
+    else if ( action == "helmet" )
+    {
+        ok = isdefined( level.zmm_helmet_fn );
+        if ( ok )
+        {
+            self thread [[ level.zmm_helmet_fn ]]( value );
+        }
+    }
     else if ( action == "ammo_mod" )
     {
         ok = menu_ammo_mod( value );
@@ -6684,6 +6751,12 @@ function menu_param( label, action, value )
     {
         label = self.zmm.gum;
         ok = menu_equip_gum( self.zmm.gum, value );
+    }
+    else if ( action == "gum_saved" )
+    {
+        // shortcut / favorite of a gum row: value = "0" or "1" (use now) + the gum
+        label = getsubstr( value, 1 );
+        ok = menu_equip_gum( label, getsubstr( value, 0, 1 ) == "1" );
     }
     else if ( action == "practice" )
     {
@@ -7904,6 +7977,16 @@ function menu_hk_dec( v )
     return int( getsubstr( v, 1 ) ) / 1000;
 }
 
+// a gum row acts on the gum picked before it, which is gone after a restart: save the gum inside the row
+function menu_saved_entry( entry )
+{
+    if ( entry[ 1 ] == 9 && entry[ 2 ] == "gum_equip" && isstring( self.zmm.gum ) )
+    {
+        return [ entry[ 0 ] + ": " + removesubstr( self.zmm.gum, "zm_bgb_" ), 9, "gum_saved", "" + entry[ 3 ] + self.zmm.gum ];
+    }
+    return entry;
+}
+
 function menu_hk_bind( key )
 {
     state = self.zmm;
@@ -7914,6 +7997,7 @@ function menu_hk_bind( key )
         menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
         return;
     }
+    state.hk_entry = menu_saved_entry( state.hk_entry );
     state.hk_val = state.hk_entry[ 1 ] + "~" + state.hk_entry[ 0 ] + "~" + menu_hk_enc( state.hk_entry[ 2 ] ) + "~" + menu_hk_enc( state.hk_entry[ 3 ] );
     nengine_store_load( "fuzmenu", "shortcuts" );
     if ( nengine_store_get( "fuzmenu", "f" + key ) === state.hk_val )
@@ -7997,6 +8081,7 @@ function menu_fav_toggle()
     }
     else
     {
+        state.fav_entry = menu_saved_entry( state.fav_entry );
         state.fav_val = state.fav_entry[ 1 ] + "~" + state.fav_entry[ 0 ] + "~" + menu_hk_enc( state.fav_entry[ 2 ] ) + "~" + menu_hk_enc( state.fav_entry[ 3 ] );
     }
     nengine_store_load( "fuzmenu", "favorites" );
