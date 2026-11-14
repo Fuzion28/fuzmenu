@@ -997,6 +997,8 @@ function fun_gg_start( key )
         {
             p.zmm.fun_gg_lvl = 0;
             p.zmm.fun_gg_kills = 0;
+            // a new Gun Game carries what the held gun has, not a past game's values
+            p.zmm.gg_pap = undefined;
         }
     }
     foreach ( p in fun_mode_players() )
@@ -1125,8 +1127,8 @@ function fun_gg_give( name )
     }
     self fun_roul_strip();
     wait 0.5;
-    // the carried rarity would take the wonder weapon's own away
-    if ( !issubstr( name, "sat_ww_" ) )
+    // the carried rarity would take the wonder weapon's own away; melee steps keep it for the next gun
+    if ( !issubstr( name, "sat_ww_" ) && !issubstr( name, "_me_" ) )
     {
         self [[ level.zmm_gg_apply_fn ]]();
     }

@@ -5465,12 +5465,18 @@ function menu_pick_pap_weapon()
 // a rebuilt melee weapon must go back to the melee slot, as the game's own PaP does
 function menu_assign_slot( w_new )
 {
-    if ( weapon::function_6b74ecd475e99b4( w_new ) )
+    // the game's melee check misses some upgraded melee weapons: the name says it too
+    if ( weapon::function_6b74ecd475e99b4( w_new ) || menu_is_melee_name( w_new ) )
     {
         self weapon::function_b4c9549dee5d0fc5( w_new );
         return;
     }
     self assignweaponprimaryslot( w_new );
+}
+
+function menu_is_melee_name( w )
+{
+    return isdefined( w ) && isdefined( w.basename ) && ( issubstr( w.basename, "_me_" ) || issubstr( w.basename, "_ww_locust" ) );
 }
 
 // returns 1 on success, other values are failure codes
@@ -5595,12 +5601,17 @@ function menu_rarity( rarity )
 function menu_gg_read()
 {
     self.zmm.gg_w = self getcurrentweapon();
-    self.zmm.gg_pap = 0;
-    self.zmm.gg_rar = 0;
-    if ( !isdefined( self.zmm.gg_w ) || isnullweapon( self.zmm.gg_w ) )
+    if ( !isdefined( self.zmm.gg_pap ) )
+    {
+        self.zmm.gg_pap = 0;
+        self.zmm.gg_rar = 0;
+    }
+    // melee, wonder weapon or nothing in hand: keep what the last gun had
+    if ( !isdefined( self.zmm.gg_w ) || isnullweapon( self.zmm.gg_w ) || menu_is_melee_name( self.zmm.gg_w ) || ( isdefined( self.zmm.gg_w.basename ) && issubstr( self.zmm.gg_w.basename, "sat_ww_" ) ) )
     {
         return;
     }
+    self.zmm.gg_rar = 0;
     self.zmm.gg_pap = menu_pap_level( self.zmm.gg_w );
     self.zmm.gg_i = menu_weapon_primary_index( self, self.zmm.gg_w );
     if ( isdefined( self.zmm.gg_i ) && isdefined( self.var_1a87a9e7cf39ff69 ) && isdefined( self.var_1a87a9e7cf39ff69[ self.zmm.gg_i ] ) && isdefined( self.var_1a87a9e7cf39ff69[ self.zmm.gg_i ].rarity ) )
@@ -5735,6 +5746,7 @@ function menu_give_melee_wonder( w_new )
     self giveweapon( w_new, undefined, 0, -1, 0 );
     self weapon::function_b4c9549dee5d0fc5( w_new );
     menu_fill_weapon_ammo( w_new );
+    self switchtoweapon( w_new );
     wait 0.25;
     return self hasweapon( w_new );
 }
