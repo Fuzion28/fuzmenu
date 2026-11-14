@@ -99,6 +99,9 @@ function fun_pages()
         [ "Back", 1, "" ] ] );
     [[ level.zmm_add_page ]]( "XGameModes", "GAME MODES", [
         [ "Gun Game", 11, "fun_mode", "gg" ],
+        [ "Gun Game: random order", 11, "fun_rule", "gg_rand" ],
+        [ "Gun Game: + melee & wonder weapons", 11, "fun_rule", "gg_all" ],
+        [ "Gun Game: points to go up", 11, "fun_rule", "gg_pts" ],
         [ "One in the Chamber", 11, "fun_mode", "oitc" ],
         [ "Sharpshooter (new gun every 30 s)", 11, "fun_mode", "sharp" ],
         [ "One-gun roulette", 11, "fun_mode", "roul" ],
@@ -792,12 +795,12 @@ function fun_zombie_dead( params )
     level.fun_killer = params.var_917e21c98d80255e;
     if ( isplayer( level.fun_killer ) && isdefined( level.fun_killer.zmm ) )
     {
-        // melee kills do not count: the ladder is guns only
-        if ( level.fun_mode == "gg" )
+        // melee kills only count on a melee step; with points to go up the points loop does the counting
+        if ( level.fun_mode == "gg" && !istrue( level.fun_rule[ "gg_pts" ] ) )
         {
-            if ( !( params.var_f5a880abf0b199dc === "MOD_MELEE" ) && !( isdefined( params.var_b575eda3d8d8533b ) && isdefined( params.var_b575eda3d8d8533b.basename ) && issubstr( params.var_b575eda3d8d8533b.basename, "_me_" ) ) )
+            if ( level.fun_killer fun_gg_on_melee() || ( !( params.var_f5a880abf0b199dc === "MOD_MELEE" ) && !( isdefined( params.var_b575eda3d8d8533b ) && isdefined( params.var_b575eda3d8d8533b.basename ) && issubstr( params.var_b575eda3d8d8533b.basename, "_me_" ) ) ) )
             {
-                level.fun_killer fun_gg_kill();
+                level.fun_killer fun_gg_add( 1 );
             }
         }
         else if ( level.fun_mode == "oitc" && isdefined( level.fun_killer.zmm.fun_w ) )
@@ -896,6 +899,7 @@ function fun_mode_rearm()
             self.zmm.fun_gg_kills = 0;
         }
         self thread fun_gg_give( level.fun_ladder[ self.zmm.fun_gg_lvl ] );
+        self thread fun_gg_pts_loop();
         self fun_gg_hud();
     }
     else if ( level.fun_mode == "oitc" )
@@ -925,13 +929,25 @@ function fun_mode_players()
     return level.fun_mp;
 }
 
-// Gun Game: every gun of the weapon pages, class by class from pistols to launchers (shuffled inside a class); 3 kills to go up
+// Gun Game: every gun of the weapon pages, class by class from pistols to launchers (shuffled inside a class), or all shuffled (gg_rand)
+// gg_all adds the melee and wonder weapon pages; gg_pts goes up on points earned instead of kills
 function fun_gg_start( key )
 {
     level.fun_ladder = [];
+    level.fun_gg_pages = [];
+    foreach ( page_id in level.fun_ladder_pages )
+    {
+        level.fun_gg_pages[ level.fun_gg_pages.size ] = page_id;
+    }
+    if ( istrue( level.fun_rule[ "gg_all" ] ) )
+    {
+        level.fun_gg_pages[ level.fun_gg_pages.size ] = "W_me";
+        level.fun_gg_pages[ level.fun_gg_pages.size ] = "W6_me";
+        level.fun_gg_pages[ level.fun_gg_pages.size ] = "Wonder";
+    }
     if ( isdefined( level.zmm_pages ) )
     {
-        foreach ( page_id in level.fun_ladder_pages )
+        foreach ( page_id in level.fun_gg_pages )
         {
             if ( !isdefined( level.zmm_pages[ page_id ] ) )
             {
@@ -943,10 +959,15 @@ function fun_gg_start( key )
             }
             foreach ( entry in level.zmm_pages[ page_id ].items )
             {
-                if ( entry[ 1 ] == 8 )
+                // Sundergat is a converted Blundergat, only the menu's own give makes it
+                if ( entry[ 1 ] == 8 && !( entry[ 2 ] == "sundergat" ) )
                 {
                     level.fun_ladder[ level.fun_ladder.size ] = fun_gun_from_entry( entry );
                 }
+            }
+            if ( istrue( level.fun_rule[ "gg_rand" ] ) )
+            {
+                level.fun_lg_start = 0;
             }
             for ( level.fun_lg_i = level.fun_ladder.size - 1; level.fun_lg_i > level.fun_lg_start; level.fun_lg_i-- )
             {
@@ -962,7 +983,14 @@ function fun_gg_start( key )
         level.fun_mode = "";
         return;
     }
-    fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + fun_gg_need( 0 ) + " kills to start, +1 every 5 guns" );
+    if ( istrue( level.fun_rule[ "gg_pts" ] ) )
+    {
+        fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + fun_gg_need( 0 ) + " points to start, x1.02 every gun" );
+    }
+    else
+    {
+        fun_say_all( "^3Gun Game: " + level.fun_ladder.size + " guns, " + fun_gg_need( 0 ) + " kills to start, +1 every 5 guns" );
+    }
     foreach ( p in level.players )
     {
         if ( isdefined( p ) && isdefined( p.zmm ) )
@@ -974,6 +1002,7 @@ function fun_gg_start( key )
     foreach ( p in fun_mode_players() )
     {
         p thread fun_gg_give( level.fun_ladder[ 0 ] );
+        p thread fun_gg_pts_loop();
         p fun_gg_hud();
     }
 }
@@ -983,25 +1012,60 @@ function fun_gg_hud()
 {
     if ( [[ level.zmm_is_host_fn ]]() )
     {
-        setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + "   Kills " + self.zmm.fun_gg_kills + "/" + fun_gg_need( self.zmm.fun_gg_lvl ) );
+        setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + ( istrue( level.fun_rule[ "gg_pts" ] ) ? "   Points " : "   Kills " ) + self.zmm.fun_gg_kills + "/" + fun_gg_need( self.zmm.fun_gg_lvl ) );
     }
 }
 
-// kills to move on from gun lvl: more the further up the ladder
+// kills (or points with gg_pts: 2000, x1.02 every gun) to move on from gun lvl: more the further up the ladder
 function fun_gg_need( lvl )
 {
-    return 10 + int( lvl / 5 );
+    if ( !istrue( level.fun_rule[ "gg_pts" ] ) )
+    {
+        return 10 + int( lvl / 5 );
+    }
+    level.fun_gg_n = 2000;
+    for ( level.fun_gg_i = 0; level.fun_gg_i < lvl; level.fun_gg_i++ )
+    {
+        level.fun_gg_n = level.fun_gg_n * 1.02;
+    }
+    return int( level.fun_gg_n );
 }
 
-// self = player
-function fun_gg_kill()
+// self = player; on a melee weapon or the Jotunn Star (melee wonder weapon) step
+function fun_gg_on_melee()
+{
+    return isdefined( self.zmm.fun_gg_lvl ) && isdefined( level.fun_ladder[ self.zmm.fun_gg_lvl ] ) && ( issubstr( level.fun_ladder[ self.zmm.fun_gg_lvl ], "_me_" ) || issubstr( level.fun_ladder[ self.zmm.fun_gg_lvl ], "_ww_locust" ) );
+}
+
+// self = player; gg_pts: adds the points earned (rises of the score, so buying does not take progress away)
+function fun_gg_pts_loop()
+{
+    self notify( #"fun_gg_pts" );
+    self endon( #"fun_gg_pts" );
+    self endon( #"disconnect" );
+    level endon( #"fun_mode_end" );
+    self.zmm.fun_gg_pts = self [[ level.zmm_points_fn ]]();
+    while ( true )
+    {
+        wait 0.1;
+        self.zmm.fun_gg_now = self [[ level.zmm_points_fn ]]();
+        if ( istrue( level.fun_rule[ "gg_pts" ] ) && isdefined( self.zmm.fun_gg_pts ) && self.zmm.fun_gg_now > self.zmm.fun_gg_pts )
+        {
+            self fun_gg_add( self.zmm.fun_gg_now - self.zmm.fun_gg_pts );
+        }
+        self.zmm.fun_gg_pts = self.zmm.fun_gg_now;
+    }
+}
+
+// self = player; n kills or points toward the next gun
+function fun_gg_add( n )
 {
     if ( !isdefined( self.zmm.fun_gg_lvl ) )
     {
         self.zmm.fun_gg_lvl = 0;
         self.zmm.fun_gg_kills = 0;
     }
-    self.zmm.fun_gg_kills++;
+    self.zmm.fun_gg_kills = self.zmm.fun_gg_kills + n;
     if ( self.zmm.fun_gg_kills < fun_gg_need( self.zmm.fun_gg_lvl ) )
     {
         self fun_gg_hud();
@@ -1035,14 +1099,23 @@ function fun_gg_give( name )
     {
         self.zmm.fun_w = self.zmm.build_gun;
     }
+    else if ( isdefined( name ) && ( issubstr( name, "_me_" ) || issubstr( name, "sat_ww_" ) ) )
+    {
+        // the menu's own give: melee slot for melee weapons, wonder weapon rarity
+        self.zmm.sundergat = 0;
+        if ( istrue( self [[ level.zmm_give_wonder_fn ]]( name ) ) )
+        {
+            self.zmm.fun_w = self.var_ww_build;
+        }
+    }
     else
     {
         self fun_give_gun( name );
     }
     if ( !isdefined( self.zmm.fun_w ) )
     {
-        // a BO6 gun this map cannot load: go on to the next one
-        if ( isdefined( name ) && issubstr( name, "t10_" ) && self.zmm.fun_gg_lvl + 1 < level.fun_ladder.size )
+        // a BO6 gun, melee or wonder weapon this map cannot load: go on to the next one
+        if ( isdefined( name ) && ( issubstr( name, "t10_" ) || issubstr( name, "_me_" ) || issubstr( name, "sat_ww_" ) ) && self.zmm.fun_gg_lvl + 1 < level.fun_ladder.size )
         {
             self.zmm.fun_gg_lvl++;
             self fun_gg_hud();
@@ -1052,7 +1125,11 @@ function fun_gg_give( name )
     }
     self fun_roul_strip();
     wait 0.5;
-    self [[ level.zmm_gg_apply_fn ]]();
+    // the carried rarity would take the wonder weapon's own away
+    if ( !issubstr( name, "sat_ww_" ) )
+    {
+        self [[ level.zmm_gg_apply_fn ]]();
+    }
 }
 
 // One in the Chamber: a pistol with one bullet, every bullet kills, every kill gives a bullet back

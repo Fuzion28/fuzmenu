@@ -7,7 +7,7 @@ On-screen hints adapt to controller or keyboard.
 ## 🎨 Menu
 - **Start logo** when the game begins (can be turned off in Settings)
 - **Weapon picture** of your current gun next to the menu
-- **Boss health bar** on screen during boss fights
+- **Boss health bar** on screen during boss fights (can be turned off in Settings)
 
 ## 🛡️ OP Mode
 One switch turns on god mode, infinite ammo & points, aimbot, wallhack, rapid fire, no recoil, infinite equipment & field upgrade, no fall / explosive self-damage, infinite tactical sprint, Ultra + PaP 4, speed, jump x4, low gravity and all perks.
@@ -31,10 +31,10 @@ Map locations, Return to spawn, Unstuck
 - Every weapon class: assault rifles, SMGs, LMGs, shotguns, marksman, snipers, pistols, launchers, melee
 - **BO6 weapons**, **New weapons**, **Scorestreak weapons**, **Dead Ops Arcade guns**
 - My loadout primary / secondary, Random weapon, Remove held weapon
-- **Use my zombie build**: weapons come with your Gunsmith zombie build (stock if you have none)
+- **Use my zombie build**: weapons come with your Gunsmith zombie build. BO6 guns and wonder weapons have no Gunsmith zombie build, so they use your first saved build slot of that weapon (stock if you have none)
 - Equipment: Kazimir, Decoy, Monkey bomb, Stim, Stun, Flash, Smoke, Frag, Semtex, Molotov, Cluster, Throwing knife, Combat axe, C4, Claymore, Void Claw and Void Talon (upgraded) on Rex Infernus (filled to the max), Viking helmets on Totenreich (fishing luck, gnome form, more power-ups, frost blast)
 
-**Wonder weapons**
+**Wonder weapons** (in Give a weapon, with the wonder weapon rarity)
 Necrofluid (Ashes, Rex), Nekomancer (Kowakujo), Jotunn Star (Totenreich), Blundergat (Paradox), Sundergat (Paradox), LGM-1 (Astra), Warden's Blight (Rex), Ray Gun, Ray Gun Mk2
 
 **Shooting options**
@@ -98,7 +98,7 @@ Mystery box: Free, Faster, Lock the box in place
 
 ## 🎮 Game modes & rules
 **Game modes**
-Gun Game (BO6 guns too, keeps your PaP and rarity, 10 kills per gun and more further up, melee kills do not count), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
+Gun Game (BO6 guns too, keeps your PaP and rarity, 10 kills per gun and more further up, melee kills do not count). Options: random order across all guns, + melee & wonder weapons (melee kills count on melee steps), points to go up (2000 for the first gun, x1.02 every gun), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
 
 **Match rules**
 Headshots only, Melee only, Tough zombies x2 / x5 / x10, Random weapon every round, Heal + revive at round end, Rest break 10 s / 30 s, Super sprinters from round 20 / 40
@@ -125,7 +125,7 @@ Old-school damage, No armor, Back shield (recharge it at the armor wall), OG spe
 - **Save / Load** your build per map, Delete last, Delete nearest, Delete all
 
 ## ⚙️ Settings
-Menu color, Menu on the right, Text mode (no HUD), Start logo, Mouse navigation (Aim up, Shoot down), Aim + Melee opens the menu on keyboard/mouse (always on with a controller)
+Menu color, Menu on the right, Text mode (no HUD), Start logo, Boss health bar, Mouse navigation (Aim up, Shoot down), Aim + Melee opens the menu on keyboard/mouse (always on with a controller)
 **Shortcuts**: highlight any option and press F1-F12 to bind it, then press the key with the menu closed. Same key again unbinds it. F1-F12 no longer do their usual in-game action.
 **Favorites**: first page of the menu. Highlight any option and press right arrow (D-pad right) to add it, same key on a favorite removes it. Up to 8, saved.
 **Profiles**: save and load 3 sets of settings

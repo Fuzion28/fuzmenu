@@ -105,6 +105,8 @@ autoexec init()
     level.zmm_zm_build_fn = &menu_zm_build;
     level.zmm_gg_read_fn = &menu_gg_read;
     level.zmm_gg_apply_fn = &menu_gg_apply;
+    level.zmm_give_wonder_fn = &menu_give_wonder;
+    level.zmm_points_fn = &menu_points_now;
     level callback::add( #"player_spawned", &menu_on_spawned );
     level callback::add( #"player_death", &menu_on_death );
     level callback::add( #"player_disconnect", &menu_on_disconnect );
@@ -147,7 +149,6 @@ function menu_build_pages()
 
     menu_add_page( "Weapons", "WEAPONS", [
         [ "Give a weapon", 2, "WeapGive" ],
-        [ "Wonder weapons", 2, "Wonder" ],
         [ "Shooting options", 2, "WeapFire" ],
         [ "Damage", 2, "WeapDmg" ],
         [ "Upgrade", 2, "WeapUp" ],
@@ -310,6 +311,7 @@ function menu_build_pages()
         [ "Pistols", 2, "W_pi" ],
         [ "Launchers", 2, "W_la" ],
         [ "Melee", 2, "W_me" ],
+        [ "Wonder weapons", 2, "Wonder" ],
         [ "BO6 weapons", 2, "W_bo6" ],
         [ "New weapons", 2, "ArsNew" ],
         [ "Scorestreak weapons", 2, "ArsStreak" ],
@@ -803,6 +805,7 @@ function menu_build_pages()
         [ "Menu on the right", 4, "menu_right" ],
         [ "Text mode (no HUD)", 4, "text_mode" ],
         [ "Start logo", 4, "start_logo" ],
+        [ "Boss health bar", 4, "boss_bar" ],
         [ "Mouse navigation", 4, "mouse_nav" ],
         [ "Aim + Melee opens the menu", 4, "aim_melee" ],
         [ "Shortcuts (F1-F12)", 9, "hk_list", 0 ],
@@ -1006,6 +1009,12 @@ function menu_on_spawned( params )
     state.toggles[ "aim_melee" ] = nengine_store_get( "fuzmenu", "aimmelee" ) === "0" ? 0 : 1;
     // Give a weapon uses the player's Gunsmith zombie build when there is one
     state.toggles[ "zm_build" ] = nengine_store_get( "fuzmenu", "zmbuild" ) === "1" ? 1 : 0;
+    // Settings > Boss health bar (zm_mod_menu_ui), the host's choice
+    state.toggles[ "boss_bar" ] = nengine_store_get( "fuzmenu", "bossbar" ) === "0" ? 0 : 1;
+    if ( menu_is_host() )
+    {
+        level.zmm_boss_bar_off = !state.toggles[ "boss_bar" ];
+    }
     state.equip_loop = 0;
     state.upgrade_loop = 0;
     state.god_loop = 0;
@@ -1733,10 +1742,14 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
-    if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" )
+    if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" )
     {
+        if ( key == "boss_bar" && menu_is_host() )
+        {
+            level.zmm_boss_bar_off = !on;
+        }
         nengine_store_load( "fuzmenu", "settings" );
-        nengine_store_set( "fuzmenu", key == "start_logo" ? "logo" : ( key == "mouse_nav" ? "mouse" : ( key == "aim_melee" ? "aimmelee" : "zmbuild" ) ), on ? "1" : "0" );
+        nengine_store_set( "fuzmenu", key == "start_logo" ? "logo" : ( key == "mouse_nav" ? "mouse" : ( key == "aim_melee" ? "aimmelee" : ( key == "boss_bar" ? "bossbar" : "zmbuild" ) ) ), on ? "1" : "0" );
         nengine_store_save( "fuzmenu", "settings" );
         return true;
     }
@@ -2180,6 +2193,8 @@ function menu_sr_setup()
         sr.flags = [ sr.quest, "serum_t_finished", "mid_igc_started", "MQ_STEP_18_COMPLETE", "firefly_boss_fight_complete" ];
         // main quest step practice splits 2 to 4 start on
         sr.jumps = [ #"serum_trial", #"hash_ff159ae12616b58", #"hash_30d17f8fd9002869" ];
+        // Skip to EE step only (not splits): later main quest steps between the challenges and the boss, set up like the challenges jump
+        sr.ee_extra = [ [ "Trapped survivors", #"hash_4c25b1fbd9b6e496" ], [ "Film reels", #"hash_fdfd900907cdfa82" ], [ "Tessie wisps drive", #"TME_collection" ] ];
         sr.lo = [ [ 8, 0, 1, 5000, 2 ], [ 0, 0, 0, 0, 0 ], [ 12, 0, 1, 10000, 2 ], [ 15, 2, 1, 10000, 2 ], [ 0, 3, 1, 0, 2 ] ];
         sr.pkey = "firefly2_pos";
     }
@@ -2932,7 +2947,7 @@ function menu_sr_split_quests()
         {
             // a jump's skipped step 2 never sets it, and its end callback blocks every later step on it
             namespace_60b3bdcc70f79fc6::function_36488e0e5a90d20f( "m_complete" );
-            level thread zm_quest::function_80abdea0cd4c89a7( sr.mq, sr.jumps[ sr.practice - 2 ] );
+            level thread zm_quest::function_80abdea0cd4c89a7( sr.mq, isdefined( sr.ee_step ) ? sr.ee_step : sr.jumps[ sr.practice - 2 ] );
         }
     }
 }
@@ -3786,7 +3801,7 @@ function menu_zm_build( base )
     self.zmm.bk_id = self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponLootID" );
     if ( !isdefined( self.zmm.bk_id ) || self.zmm.bk_id == 0 )
     {
-        return 0;
+        return menu_slot_build( base );
     }
     // root loot id from the base name: the saved loot id can be a blueprint's
     self.zmm.bk_str = "" + namespace_952965bfef60cff8::function_fae2e7aa6e279966( base ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponVariantID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "camoLootID" ) ?? 0 ) + ",0";
@@ -3795,6 +3810,26 @@ function menu_zm_build( base )
         self.zmm.bk_str = self.zmm.bk_str + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentLootID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentVariantID" ) ?? 0 );
     }
     return menu_build_from_str();
+}
+
+// that table only has the BO7 guns (no BO6 gun, no wonder weapon): the first saved build slot of that gun instead
+function menu_slot_build( base )
+{
+    self.zmm.bk_id = namespace_952965bfef60cff8::function_fae2e7aa6e279966( base );
+    if ( !isdefined( self.zmm.bk_id ) || self.zmm.bk_id == 0 )
+    {
+        return 0;
+    }
+    nengine_store_load( "fuzmenu", "builds" );
+    for ( self.zmm.bk_slot = 1; self.zmm.bk_slot <= 10; self.zmm.bk_slot++ )
+    {
+        self.zmm.bk_str = nengine_store_get( "fuzmenu", "b" + self.zmm.bk_slot );
+        if ( isdefined( self.zmm.bk_str ) && self.zmm.bk_str != "" && int( strtok( self.zmm.bk_str, "," )[ 0 ] ) == self.zmm.bk_id )
+        {
+            return menu_build_from_str();
+        }
+    }
+    return 0;
 }
 
 // builds and gives the gun of self.zmm.bk_str
@@ -3850,6 +3885,10 @@ function menu_build_from_str()
     if ( int( self.zmm.bk_parts[ 3 ] ) > 0 )
     {
         menu_pap( int( self.zmm.bk_parts[ 3 ] ), 1 );
+    }
+    if ( issubstr( self.zmm.bk_root, "sat_ww_" ) )
+    {
+        self menu_ww_rarity( self.zmm.build_gun );
     }
     return 1;
 }
@@ -5710,7 +5749,7 @@ function menu_wonder_worker( label, name )
         return;
     }
     self.zmm.gun_loaded = 1;
-    if ( menu_toggle_state( "zm_build" ) && issubstr( name, "sat_" ) && issubstr( name, "_mp" ) && !issubstr( name, "_mpug" ) && menu_zm_build( removesubstr( name, "_mp" ) ) )
+    if ( menu_toggle_state( "zm_build" ) && ( issubstr( name, "sat_" ) || issubstr( name, "t10_" ) ) && menu_zm_build( issubstr( name, "_mp" ) && !issubstr( name, "_mpug" ) ? removesubstr( name, "_mp" ) : name ) )
     {
         menu_notify( label + " (my build)", 1 );
         return;
@@ -5832,7 +5871,26 @@ function menu_give_wonder( name )
         wait 0.25;
         held = self hasweapon( w_new ) || menu_player_has_weapon( self, check_name );
     }
+    if ( held && issubstr( weapon_name, "sat_ww_" ) )
+    {
+        self menu_ww_rarity( w_new );
+    }
     return held;
+}
+
+// a plain giveweapon leaves a wonder weapon common (grey): give it the wonder weapon rarity once it is in hand
+function menu_ww_rarity( w )
+{
+    for ( self.zmm.ww_i = 0; self.zmm.ww_i < 20 && !( self getcurrentweapon() == w ); self.zmm.ww_i++ )
+    {
+        wait 0.1;
+    }
+    self menu_rarity( 6 );
+}
+
+function menu_points_now()
+{
+    return self points::function_8f0a9502ff7321a();
 }
 
 // ---------------------------------------------------------------- zombies / powerups
@@ -6008,15 +6066,24 @@ function menu_ee_steps()
     {
         return 0;
     }
-    for ( i = 1; i < level.zmm_sr.names.size; i++ )
+    sr = level.zmm_sr;
+    for ( i = 1; i < sr.names.size; i++ )
     {
         if ( i > 1 )
         {
             self.zmm.ee_names += "|";
         }
-        self.zmm.ee_names += level.zmm_sr.names[ i ];
+        // the extra steps go before the boss split
+        if ( i == sr.names.size - 1 && isdefined( sr.ee_extra ) )
+        {
+            foreach ( extra in sr.ee_extra )
+            {
+                self.zmm.ee_names += extra[ 0 ] + "|";
+            }
+        }
+        self.zmm.ee_names += sr.names[ i ];
     }
-    return level.zmm_sr.names.size - 1;
+    return sr.names.size - 1 + ( isdefined( sr.ee_extra ) ? sr.ee_extra.size : 0 );
 }
 
 // step n (1-based) jumps the main quest to speedrun split n + 1 in place: quests only, no restart, loadout, weapon, timer or teleport (the boss start brings its own)
@@ -6028,17 +6095,30 @@ function menu_ee_jump( n )
         return 0;
     }
     sr.ee_busy = 1;
-    level thread menu_ee_run( n + 1 );
+    // n past the last non-boss split: an extra step, then the boss split
+    last = sr.names.size - 2;
+    extras = isdefined( sr.ee_extra ) ? sr.ee_extra.size : 0;
+    if ( n > last && n <= last + extras )
+    {
+        level thread menu_ee_run( last + 1, sr.ee_extra[ n - last - 1 ][ 1 ] );
+    }
+    else
+    {
+        level thread menu_ee_run( n > last ? sr.names.size : n + 1 );
+    }
     return 1;
 }
 
 // shortcut: borrows sr.practice while the quests are set (the split writer shows practice for that moment), add a split argument if that shows
-function menu_ee_run( split )
+function menu_ee_run( split, step )
 {
     sr = level.zmm_sr;
     sr.ee_prev = sr.practice;
     sr.practice = split;
+    // an extra step: the split's setup, jumping to that step instead of the split's
+    sr.ee_step = step;
     menu_sr_split_quests();
+    sr.ee_step = undefined;
     // the last split is the boss: hornet and locust start it in the quest part
     if ( split == sr.names.size && sr.map != "zm_sat_hornet" && sr.map != "zm_sat_locust" )
     {
@@ -6859,7 +6939,7 @@ function menu_prof_save( slot )
     str = "x";
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && key != "zm_build" && menu_toggle_state( key ) )
+        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && key != "zm_build" && key != "boss_bar" && menu_toggle_state( key ) )
         {
             str = str + "," + key;
         }
@@ -7159,7 +7239,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in getarraykeys( state.toggles ) )
     {
-        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || !istrue( state.toggles[ key ] ) )
         {
             continue;
         }

@@ -474,7 +474,7 @@ local function tick()
                 call(S.gg,"SetAlpha",1)
                 S.ggParent=parent
             end
-            call(S.ggLabel,"setText",(gg:gsub("sat_[a-z]+_[a-z0-9]+",weaponName)))
+            call(S.ggLabel,"setText",(gg:gsub("(sat_ww_[a-z0-9]+)_zm","%1"):gsub("sat_[a-z]+_[a-z0-9]+",weaponName):gsub("t10_[a-z]+_p%d+_[a-z0-9]+",weaponName)))
             S.ggText=gg
         end
     end

@@ -76,7 +76,7 @@ function ui_on_render( entry, line )
 
 // ---------------------------------------------------------------- boss bar
 
-// "Boss|pct" for a live map boss; leaves the dvar alone while another writer owns it
+// "Boss|pct" for a map boss once it has taken damage (an idle boss AI can be alive from the map start); leaves the dvar alone while another writer owns it
 function ui_boss_loop()
 {
     level endon( "game_ended" );
@@ -89,7 +89,8 @@ function ui_boss_loop()
             level.ui_boss_out = "";
             continue;
         }
-        level.ui_boss_val = ui_boss_text();
+        // Settings > Boss health bar off (host): no bar
+        level.ui_boss_val = istrue( level.zmm_boss_bar_off ) ? "" : ui_boss_text();
         if ( level.ui_boss_val != level.ui_boss_now )
         {
             level.ui_boss_out = level.ui_boss_val;
@@ -103,7 +104,7 @@ function ui_boss_text()
     team = isdefined( level.zombie_team ) ? level.zombie_team : "team_two_hundred";
     foreach ( ai in getaiarray( team ) )
     {
-        if ( isdefined( ai ) && isalive( ai ) && ai.var_e4312c2c1a4a2190 === "boss" && isdefined( ai.maxhealth ) && ai.maxhealth > 0 && isdefined( ai.health ) )
+        if ( isdefined( ai ) && isalive( ai ) && ai.var_e4312c2c1a4a2190 === "boss" && isdefined( ai.maxhealth ) && ai.maxhealth > 0 && isdefined( ai.health ) && ai.health < ai.maxhealth )
         {
             pct = int( ai.health * 100 / ai.maxhealth );
             if ( pct < 1 )
