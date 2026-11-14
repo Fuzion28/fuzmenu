@@ -1,4 +1,4 @@
-# 🧟 FuzMenu v2.6: ALL FEATURES 🧟
+# 🧟 FuzMenu v2.7: ALL FEATURES 🧟
 
 Zombies mod menu for BO7 / Kronos, solo and **co-op**.
 Open: **Aim + Melee** or **Insert** · Move: arrows / D-pad, or Aim / Shoot · Select: **F** or **Enter** · Back: **V** or **Backspace**
@@ -6,7 +6,7 @@ On-screen hints adapt to controller or keyboard.
 
 ## 🎨 Menu
 - **Start logo** when the game begins (can be turned off in Settings)
-- **Weapon picture** of your current gun next to the menu
+- **Weapon picture** of the selected gun next to the menu
 - **Boss health bar** on screen during boss fights (can be turned off in Settings)
 
 ## 🛡️ OP Mode

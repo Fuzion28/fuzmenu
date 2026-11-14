@@ -393,13 +393,6 @@ function fun_release( mover, die )
     mover delete();
 }
 
-// self = mover
-function fun_release_after( t, die )
-{
-    wait t;
-    fun_release( self, die );
-}
-
 // kills zombies around pos, thrown outward
 function fun_blast( pos, r, fx_name, lift )
 {
@@ -439,23 +432,6 @@ function fun_spawn_ai( type, pos )
         return undefined;
     }
     return agent_manager::spawn_agent( type, level.fun_sp_pt, ( 0, randomint( 360 ), 0 ), isdefined( level.zombie_team ) ? level.zombie_team : "team_two_hundred" );
-}
-
-function fun_points()
-{
-    if ( !utility::issharedfuncdefined( #"points", #"get_points" ) )
-    {
-        return undefined;
-    }
-    return self utility::callsharedfunc( #"points", #"get_points" );
-}
-
-function fun_set_points( n )
-{
-    if ( utility::issharedfuncdefined( #"points", #"set_points" ) )
-    {
-        self utility::callsharedfunc( #"points", #"set_points", int( max( n, 0 ) ) );
-    }
 }
 
 // ---------------------------------------------------------------- guns (names from the main menu's weapon pages)
@@ -1382,14 +1358,22 @@ function fun_zone_keep()
                 continue;
             }
             level.fun_zd = distance2d( p.origin, level.fun_zone_c );
-            if ( level.fun_zd > level.fun_zone_r + 500 )
+            if ( level.fun_zd <= level.fun_zone_r )
+            {
+                p.fun_zone_warned = 0;
+            }
+            else if ( level.fun_zd > level.fun_zone_r + 500 )
             {
                 p [[ level.zmm_teleport_fn ]]( level.fun_zone_c, p getplayerangles() );
             }
             else if ( level.fun_zd > level.fun_zone_r )
             {
                 p setvelocity( vectornormalize( ( level.fun_zone_c[ 0 ] - p.origin[ 0 ], level.fun_zone_c[ 1 ] - p.origin[ 1 ], 0 ) ) * 450 + ( 0, 0, 120 ) );
-                p iprintln( "^1Back in the zone!" );
+                if ( !istrue( p.fun_zone_warned ) )
+                {
+                    p.fun_zone_warned = 1;
+                    p iprintln( "^1Back in the zone!" );
+                }
             }
         }
     }

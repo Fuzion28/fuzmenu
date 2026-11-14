@@ -20,7 +20,7 @@ if old then old.enabled=false;if old.clear then pcall(old.clear) end end
 local S={enabled=true,ticks=0}
 rawset(_G,"ZmmMenuView",S)
 
--- sizes match the PNGs from make_images.py (cap 440x16, pill 428x34)
+-- sizes match the PNGs in images/ (cap 440x16, pill 428x34)
 local W,ROW,VIS,CAP,PAD=440,34,12,16,6
 local ROWS_TOP=78
 local THEMES={0x0099ff,0xff3333,0x33ff59,0xb34dff,0xff9900,0xffd933}
@@ -96,7 +96,7 @@ local function label(parent,x,y,w,h,size,rgb,bold)
     return element
 end
 
--- PNG from kronos/Assets/Images (made by make_images.py), loaded like Project Nexus loads its art
+-- PNG from kronos/Assets/Images, loaded like Project Nexus loads its art
 local function material(name)
     S.materials=S.materials or {}
     if S.materials[name]==nil then
@@ -144,7 +144,7 @@ end
 local BW,BH=240,52
 local PIC_H=150
 local GUN_PICS={}
-for n in ("ar_albatross ar_condor ar_eagle ar_egret ar_emu ar_falcon ar_hawk ar_heron ar_kite ar_kiwi ar_macaw ar_vulture ar_wren dm_kara dm_oman dm_samar dm_scotia dm_solomon la_fang la_polis lm_hades lm_hildr lm_typhon lm_zeus me_ballisticknife me_castor me_knife me_maru me_nashira me_saiph me_shockbaton me_wasat pi_alcor pi_atlas pi_orion pi_timir sh_akita sh_corso sh_husky sh_shepherd sm_bear sm_bengal sm_civet sm_cobra sm_gecko sm_hyena sm_komodo sm_marmot sm_orca sm_otter sm_puma sm_serval sm_zebra sn_aden sn_baltic sn_caspian sn_coral sn_drake ww_firefly ww_hornet ww_locust ww_mantis ww_raygun ww_raygunmark2 ww_ruby ww_scarab ar_finch sm_mammoth sm_stoat sh_terrier dm_tasman ww_sundergat"):gmatch("%S+") do GUN_PICS[n]=true end
+for n in ("ar_albatross ar_condor ar_eagle ar_egret ar_emu ar_falcon ar_hawk ar_heron ar_kite ar_kiwi ar_macaw ar_vulture ar_wren dm_kara dm_oman dm_samar dm_scotia dm_solomon la_fang la_polis lm_hades lm_hildr lm_typhon lm_zeus me_ballisticknife me_castor me_knife me_maru me_nashira me_saiph me_shockbaton me_wasat pi_alcor pi_atlas pi_orion pi_timir sh_akita sh_corso sh_husky sh_shepherd sm_bear sm_bengal sm_civet sm_cobra sm_gecko sm_hyena sm_komodo sm_marmot sm_orca sm_otter sm_puma sm_serval sm_zebra sn_aden sn_baltic sn_caspian sn_coral sn_drake ww_firefly ww_hornet ww_locust ww_mantis ww_raygun ww_raygunmark2 ww_ruby ww_scarab ar_finch sm_mammoth sm_stoat sh_terrier dm_tasman ww_sundergat ar_coslo723 ar_aking74 ar_clove ar_fable ar_rmary2 ar_asvalor ar_able18 ar_love85 ar_tbaker ar_kent ar_gilroy ar_fresno ar_aspen ar_milan sm_geasy9 sm_safox sm_chuck9 sm_sroger3 sm_roger31 sm_pparis90 sm_saug sm_perth sm_schuck sm_lisbon sm_mpug40 lm_aroger10 lm_puncle21 lm_ksugar58 lm_uxray lm_mesa sh_moslo500 sh_olove sh_uncle12 sh_jhavana dm_sroger25 dm_aeasy dm_sgeorge550 dm_falove dm_svalor dm_erie sn_ultiger sn_droger sn_love96 sn_mary82 sn_hugo pi_paris30 pi_usugar9 pi_mable pi_stiger pi_pyork la_pable3 la_stisaac me_bat me_cleaver me_drill me_skateboard me_katanas me_sais me_nunchaku me_bostaff me_keene me_pickaxe me_bgloves me_csaw sl_blauncher sl_napa sl_wand"):gmatch("%S+") do GUN_PICS[n]=true end
 local function buildPic(frame)
     local box=newElement("UIElement")
     call(box,"SetAlpha",0);passive(box);call(frame,"addElement",box)
@@ -213,6 +213,7 @@ local function showPic(value)
     end
     local accent=S.theme or THEMES[1]
     local key=ref:match("^sat_([a-z]+_[a-z0-9]+)_[mz][pm]$") or ref:match("^sat_([a-z]+_[a-z0-9]+)$") or (ref=="sundergat" and "ww_sundergat")
+    if not key then local c,n=ref:match("^t10_([a-z]+)_p%d+_([a-z0-9]+)");key=c and c.."_"..n end
     local mat=key and GUN_PICS[key] and material("fuzmenu_w_"..key)
     local h=mat and PIC_H or BH
     local x=S.right and -BW-12 or W+12
@@ -546,8 +547,12 @@ local function ensureTimer()
             if not animation then S.timer=nil;return end
             animation.onComplete=function()
                 if not S.enabled or S.timer~=host then return end
-                local ok=pcall(tick)
-                if not ok then clear() end
+                local ok,err=pcall(tick)
+                if not ok then
+                    clear()
+                    -- log the first error only, a broken tick would repeat it every frame
+                    if not S.tick_err then S.tick_err=1;pcall(print,"[FuzMenu] UI error: "..tostring(err)) end
+                end
                 pcall(schedule)
             end
         end
