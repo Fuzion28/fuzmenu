@@ -995,14 +995,14 @@ function fun_gg_hud()
     }
 }
 
-// kills (or points with gg_pts: 2000, x1.02 every gun) to move on from gun lvl: more the further up the ladder
+// kills (or points with gg_pts: 1000, x1.02 every gun) to move on from gun lvl: more the further up the ladder
 function fun_gg_need( lvl )
 {
     if ( !istrue( level.fun_rule[ "gg_pts" ] ) )
     {
         return 10 + int( lvl / 5 );
     }
-    level.fun_gg_n = 2000;
+    level.fun_gg_n = 1000;
     for ( level.fun_gg_i = 0; level.fun_gg_i < lvl; level.fun_gg_i++ )
     {
         level.fun_gg_n = level.fun_gg_n * 1.02;
@@ -1104,9 +1104,14 @@ function fun_gg_give( name )
     }
     self fun_roul_strip();
     wait 0.5;
-    // the carried rarity would take the wonder weapon's own away; melee steps keep it for the next gun
-    if ( !issubstr( name, "sat_ww_" ) && !issubstr( name, "_me_" ) )
+    // the carried rarity would take the wonder weapon's own away (the Jotunn Star, a melee weapon, gets it)
+    if ( !issubstr( name, "sat_ww_" ) || issubstr( name, "_ww_locust" ) )
     {
+        // PaP and rarity work on the held weapon: wait for the melee weapon to be pulled out
+        for ( self.zmm.fun_gg_wait = 0; self.zmm.fun_gg_wait < 20 && !( self getcurrentweapon() == self.zmm.fun_w ); self.zmm.fun_gg_wait++ )
+        {
+            wait 0.1;
+        }
         self [[ level.zmm_gg_apply_fn ]]();
     }
 }

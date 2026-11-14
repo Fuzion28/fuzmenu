@@ -98,7 +98,7 @@ Mystery box: Free, Faster, Lock the box in place
 
 ## 🎮 Game modes & rules
 **Game modes**
-Gun Game (BO6 guns too, keeps your PaP and rarity, 10 kills per gun and more further up, melee kills do not count). Options: random order across all guns, + melee & wonder weapons (melee kills count on melee steps), points to go up (2000 for the first gun, x1.02 every gun), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
+Gun Game (BO6 guns too, keeps your PaP and rarity, 10 kills per gun and more further up, melee kills do not count). Options: random order across all guns, + melee & wonder weapons (melee kills count on melee steps), points to go up (1000 for the first gun, x1.02 every gun), One in the Chamber, Sharpshooter (new gun every 30 s), One-gun roulette, Boss Rush, Zone rotation (every 2 or 4 rounds)
 
 **Match rules**
 Headshots only, Melee only, Tough zombies x2 / x5 / x10, Random weapon every round, Heal + revive at round end, Rest break 10 s / 30 s, Super sprinters from round 20 / 40

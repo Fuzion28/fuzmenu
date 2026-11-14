@@ -1063,7 +1063,8 @@ function menu_input_loop()
         if ( !state.is_open )
         {
             // the setting is for keyboard and mouse: a controller or a guest (no Insert) always opens with aim + melee
-            if ( self adsbuttonpressed() && self meleebuttonpressed() && ( !state.lua || istrue( state.toggles[ "aim_melee" ] ) || istrue( self function_7cab310f9d8209c9() ) || !menu_is_host() ) )
+            // a held melee weapon presses melee on aim (heavy attack), so aim alone would open the menu
+            if ( self adsbuttonpressed() && self meleebuttonpressed() && !menu_is_melee_name( self getcurrentweapon() ) && ( !state.lua || istrue( state.toggles[ "aim_melee" ] ) || istrue( self function_7cab310f9d8209c9() ) || !menu_is_host() ) )
             {
                 menu_open();
                 while ( self adsbuttonpressed() || self meleebuttonpressed() )
@@ -5763,12 +5764,11 @@ function menu_give_melee_wonder( w_new )
     {
         self takeweapon( self.zmm.old_melee );
     }
-    self giveweapon( w_new, undefined, 0, -1, 0 );
-    self weapon::function_b4c9549dee5d0fc5( w_new );
-    menu_fill_weapon_ammo( w_new );
-    self switchtoweapon( w_new );
+    // the game's own give (box, PaP pickup): zombies variant, melee slot, ammo and switch; a raw giveweapon left
+    // melee weapons without swing animations and the Jotunn Star without its charged attack and effects
+    self namespace_91497aa03504c5ba::function_35910aac16378fec( w_new );
     wait 0.25;
-    return self hasweapon( w_new );
+    return self.var_cc1262e66dbb1c79 == w_new || self hasweapon( w_new );
 }
 
 function menu_wonder_worker( label, name )
