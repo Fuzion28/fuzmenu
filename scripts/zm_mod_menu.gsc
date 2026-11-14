@@ -1271,6 +1271,13 @@ function menu_back()
 function menu_confirm()
 {
     state = self.zmm;
+    // pages are shared: another player can rebuild this one shorter (GumList) while it is open here
+    if ( state.cursor >= level.zmm_pages[ state.page ].items.size )
+    {
+        state.cursor = level.zmm_pages[ state.page ].items.size - 1;
+        menu_render();
+        return;
+    }
     menu_run_entry( level.zmm_pages[ state.page ].items[ state.cursor ] );
 }
 
@@ -1321,7 +1328,6 @@ function menu_run_entry( entry )
     }
     else if ( kind == 8 )
     {
-        menu_notify( entry[ 0 ] + " ^3...", 1 );
         self thread menu_wonder_worker( entry[ 0 ], entry[ 2 ] );
     }
     else if ( kind == 9 )
@@ -1356,7 +1362,7 @@ function menu_notify( label, ok )
         menu_render();
     }
     // hud mode shows results in the kill feed: one hud string per result would fill the 256 text slots
-    if ( !self.zmm.is_open || isdefined( self.zmm.hud ) )
+    if ( !self.zmm.is_open || isdefined( self.zmm.hud ) || istrue( self.zmm.lua ) )
     {
         self iprintln( text );
     }
@@ -1560,6 +1566,10 @@ function menu_render()
     }
     page = level.zmm_pages[ state.page ];
     count = page.items.size;
+    if ( state.cursor >= count )
+    {
+        state.cursor = count - 1;
+    }
     position = "(" + ( state.cursor + 1 ) + "/" + count + ")";
 
     vis = level.zmm_visible;
@@ -3798,6 +3808,11 @@ function menu_restore_build( slot )
 // Gunsmith zombie build of a weapon (sat_zm_weapon_setups.ddl: one setup per zm weapon), in the saved-build format "root,variant,camo,pap,att,var,..."
 function menu_zm_build( base )
 {
+    // the Gunsmith table only knows BO7 guns: never look a BO6 gun or a wonder weapon up in it
+    if ( !issubstr( base, "sat_" ) || issubstr( base, "sat_ww_" ) )
+    {
+        return menu_slot_build( base );
+    }
     self.zmm.bk_id = self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponLootID" );
     if ( !isdefined( self.zmm.bk_id ) || self.zmm.bk_id == 0 )
     {
@@ -3897,13 +3912,18 @@ function menu_build_from_str()
 function menu_give_build()
 {
     self loadweaponsforplayer( [ self.zmm.build_gun ], 1 );
-    for ( i = 0; i < 30; i++ )
+    for ( self.zmm.build_wi = 0; self.zmm.build_wi < 30; self.zmm.build_wi++ )
     {
         if ( self hasloadedviewweapons( [ self.zmm.build_gun ] ) )
         {
             break;
         }
         wait 0.1;
+    }
+    // melee builds go to the melee slot, not a gun slot
+    if ( weapon::function_6b74ecd475e99b4( self.zmm.build_gun ) || menu_is_melee_name( self.zmm.build_gun ) )
+    {
+        return self menu_give_melee_wonder( self.zmm.build_gun );
     }
     self menu_find_replaced_gun( self.zmm.build_gun );
     if ( isdefined( self.zmm.replaced_gun ) )
@@ -5757,26 +5777,23 @@ function menu_wonder_worker( label, name )
     self.zmm.sundergat = ( name == "sundergat" );
     if ( self.zmm.sundergat )
     {
-        menu_notify( label, menu_give_wonder( "sat_ww_mantis_zm" ) );
+        menu_give_wonder( "sat_ww_mantis_zm" );
         return;
     }
     self.zmm.gun_loaded = 1;
     if ( menu_toggle_state( "zm_build" ) && ( issubstr( name, "sat_" ) || issubstr( name, "t10_" ) ) && menu_zm_build( issubstr( name, "_mp" ) && !issubstr( name, "_mpug" ) ? removesubstr( name, "_mp" ) : name ) )
     {
-        menu_notify( label + " (my build)", 1 );
         return;
     }
-    if ( menu_give_wonder( name ) )
+    // weapon gives show no message, success or failure
+    if ( issubstr( name, "t10_" ) )
     {
-        menu_notify( label, 1 );
-        return;
+        menu_give_bo6( name );
     }
-    if ( !self.zmm.gun_loaded )
+    else
     {
-        self iprintln( label + " ^1not loaded on this map (put it in a loadout)" );
-        return;
+        menu_give_wonder( name );
     }
-    menu_notify( label, 0 );
 }
 
 function menu_build_wonder( weapon_name )
@@ -5800,6 +5817,53 @@ function menu_build_wonder( weapon_name )
     {
         self.var_ww_build = self.var_ww_build function_21aa7260fe00ec7( "sat_rec_ww_mantis2" );
     }
+}
+
+// BO6 guns: the Gun Game give path (which gives them), all state in self.zmm fields since locals in menu_give_wonder read back undefined
+function menu_give_bo6( name )
+{
+    // BO6 weapon assets are named "<gun>_mp" (as the box and the game scripts use them)
+    self.zmm.b6_name = weaponexists( name + "_mp" ) ? name + "_mp" : name;
+    self.zmm.b6_w = undefined;
+    if ( ( isdefined( level.weaponmapdata ) && isdefined( level.weaponmapdata[ self.zmm.b6_name ] ) ) || weaponexists( self.zmm.b6_name ) )
+    {
+        self.zmm.b6_w = weapon::buildweapon( self.zmm.b6_name, getweapondefaultattachments( self.zmm.b6_name ) );
+    }
+    if ( !isdefined( self.zmm.b6_w ) || isnullweapon( self.zmm.b6_w ) )
+    {
+        return 0;
+    }
+    self loadweaponsforplayer( [ self.zmm.b6_w ], 1 );
+    for ( self.zmm.b6_i = 0; self.zmm.b6_i < 50; self.zmm.b6_i++ )
+    {
+        if ( self hasloadedviewweapons( [ self.zmm.b6_w ] ) )
+        {
+            break;
+        }
+        wait 0.1;
+    }
+    // a BO6 gun whose model never loads would be given empty
+    if ( !self hasloadedviewweapons( [ self.zmm.b6_w ] ) )
+    {
+        self.zmm.gun_loaded = 0;
+        return 0;
+    }
+    if ( weapon::function_6b74ecd475e99b4( self.zmm.b6_w ) || menu_is_melee_name( self.zmm.b6_w ) )
+    {
+        return self menu_give_melee_wonder( self.zmm.b6_w );
+    }
+    self menu_find_replaced_gun( self.zmm.b6_w );
+    if ( isdefined( self.zmm.replaced_gun ) )
+    {
+        self takeweapon( self.zmm.replaced_gun );
+        wait 0.1;
+    }
+    self giveweapon( self.zmm.b6_w, undefined, 0, -1, 0 );
+    self assignweaponprimaryslot( self.zmm.b6_w );
+    self switchtoweapon( self.zmm.b6_w );
+    menu_fill_weapon_ammo( self.zmm.b6_w );
+    wait 0.25;
+    return self hasweapon( self.zmm.b6_w ) || menu_player_has_weapon( self, self.zmm.b6_name ) || menu_player_has_weapon( self, name );
 }
 
 function menu_give_wonder( name )
@@ -5830,7 +5894,8 @@ function menu_give_wonder( name )
 
     self loadweaponsforplayer( [ w_new ], 1 );
     self.zmm.gun_loaded = 0;
-    for ( i = 0; i < 100; i++ )
+    // field counter: new locals in this function read back undefined in game, so a local i never ran this loop
+    for ( self.zmm.gun_wi = 0; self.zmm.gun_wi < 100; self.zmm.gun_wi++ )
     {
         if ( self hasloadedviewweapons( [ w_new ] ) )
         {
@@ -7249,7 +7314,7 @@ function menu_reset_mods()
     menu_move_option( "gravity", 1 );
     menu_level_option( "spawn_rate", 1 );
     menu_level_option( "powerup_time", 1 );
-    foreach ( key in getarraykeys( state.toggles ) )
+    foreach ( key in level.zmm_toggle_keys )
     {
         if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || !istrue( state.toggles[ key ] ) )
         {

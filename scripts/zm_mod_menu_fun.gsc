@@ -506,7 +506,8 @@ function fun_give_gun( name )
     {
         return;
     }
-    self.zmm.fun_gname = name;
+    // BO6 weapon assets are named "<gun>_mp"
+    self.zmm.fun_gname = weaponexists( name + "_mp" ) ? name + "_mp" : name;
     if ( !( isdefined( level.weaponmapdata ) && isdefined( level.weaponmapdata[ self.zmm.fun_gname ] ) ) && !weaponexists( self.zmm.fun_gname ) )
     {
         return;
@@ -1012,7 +1013,7 @@ function fun_gg_start( key )
 // self = player; zm_mod_menu_post.lua draws the host's zmm_gg line and turns the weapon ref into the gun's name
 function fun_gg_hud()
 {
-    if ( [[ level.zmm_is_host_fn ]]() )
+    if ( level.fun_mode == "gg" && [[ level.zmm_is_host_fn ]]() )
     {
         setdvar( @"zmm_gg", "Gun Game   " + ( self.zmm.fun_gg_lvl + 1 ) + "/" + level.fun_ladder.size + "   " + level.fun_ladder[ self.zmm.fun_gg_lvl ] + ( istrue( level.fun_rule[ "gg_pts" ] ) ? "   Points " : "   Kills " ) + self.zmm.fun_gg_kills + "/" + fun_gg_need( self.zmm.fun_gg_lvl ) );
     }
@@ -1117,7 +1118,7 @@ function fun_gg_give( name )
     if ( !isdefined( self.zmm.fun_w ) )
     {
         // a BO6 gun, melee or wonder weapon this map cannot load: go on to the next one
-        if ( isdefined( name ) && ( issubstr( name, "t10_" ) || issubstr( name, "_me_" ) || issubstr( name, "sat_ww_" ) ) && self.zmm.fun_gg_lvl + 1 < level.fun_ladder.size )
+        if ( isdefined( name ) && ( issubstr( name, "t10_" ) || issubstr( name, "_me_" ) || issubstr( name, "sat_ww_" ) ) && self.zmm.fun_gg_lvl + 1 < level.fun_ladder.size && level.fun_mode == "gg" )
         {
             self.zmm.fun_gg_lvl++;
             self fun_gg_hud();
@@ -1577,7 +1578,7 @@ function fun_tornado()
         return;
     }
     level.fun_tor_on = 1;
-    level.fun_tor = spawn( "script_origin", getclosestpointonnavmesh( self fun_aim_point( 450 ) ) );
+    level.fun_tor = spawn( "script_origin", getclosestpointonnavmesh( self fun_aim_point( 450 ) ) ?? self.origin );
     for ( level.fun_tor_t = 0; level.fun_tor_t < 40; level.fun_tor_t++ )
     {
         level.fun_tor_goal = undefined;
