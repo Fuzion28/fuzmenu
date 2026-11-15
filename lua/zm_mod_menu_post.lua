@@ -26,7 +26,7 @@ local ROWS_TOP=78
 local THEMES={0x0099ff,0xff3333,0x33ff59,0xb34dff,0xff9900,0xffd933}
 local PANEL,TEXT,DIM,INK,PILL=0x111214,0xa8acb3,0x6b6f76,0x111214,0xf2f3f5
 -- main page labels (FR and EN) -> Assets/Images/fuzmenu_i_<icon>.png
-local ICONS={["Joueur"]="player",["Player"]="player",["OP Mode"]="op",["Teleports"]="teleport",
+local ICONS={["Joueur"]="player",["Player"]="player",["OP Mode"]="op",["Teleports"]="teleport",["Teleportations"]="teleport",
     ["Armes"]="gun",["Weapons"]="gun",["Co-op"]="player",["Desactiver tous les mods"]="close",["Disable all mods"]="close",["Donner une arme"]="gun",["Give a weapon"]="gun",["Armes miracles"]="wonder",["Wonder weapons"]="wonder",
     ["Options de tir"]="fire",["Shooting options"]="fire",["Degats"]="damage",["Damage"]="damage",
     ["Ameliorer"]="upgrade",["Upgrade"]="upgrade",["Atouts"]="perks",["Perks"]="perks",["Gobblegums"]="gums",

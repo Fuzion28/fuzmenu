@@ -811,6 +811,7 @@ function menu_build_pages()
         [ "Menu color", 5, "theme" ],
         [ "Menu on the right", 4, "menu_right" ],
         [ "Text mode (no HUD)", 4, "text_mode" ],
+        [ "Francais / French", 4, "lang_fr" ],
         [ "Start logo", 4, "start_logo" ],
         [ "Boss health bar", 4, "boss_bar" ],
         [ "Mouse navigation", 4, "mouse_nav" ],
@@ -1018,6 +1019,8 @@ function menu_on_spawned( params )
     state.toggles[ "zm_build" ] = nengine_store_get( "fuzmenu", "zmbuild" ) === "1" ? 1 : 0;
     // Settings > Boss health bar (zm_mod_menu_ui), the host's choice
     state.toggles[ "boss_bar" ] = nengine_store_get( "fuzmenu", "bossbar" ) === "0" ? 0 : 1;
+    // Settings > Francais / French (zm_mod_menu_fr)
+    state.toggles[ "lang_fr" ] = nengine_store_get( "fuzmenu", "lang" ) === "fr" ? 1 : 0;
     if ( menu_is_host() )
     {
         level.zmm_boss_bar_off = !state.toggles[ "boss_bar" ];
@@ -1359,11 +1362,11 @@ function menu_notify( label, ok )
     }
     if ( ok )
     {
-        text = label + " ^2OK";
+        text = menu_tr( label ) + " ^2OK";
     }
     else
     {
-        text = label + " ^1failed";
+        text = menu_tr( label ) + " ^1" + menu_tr( "failed" );
     }
     if ( self.zmm.is_open )
     {
@@ -1427,15 +1430,16 @@ function menu_hud_create()
 
 function menu_line_text( entry, on )
 {
+    label = menu_tr( entry[ 0 ] );
     if ( entry[ 1 ] == 2 )
     {
-        return entry[ 0 ] + "  ^3>";
+        return label + "  ^3>";
     }
     if ( entry[ 1 ] == 4 )
     {
-        return entry[ 0 ] + ( on ? "  ^2ON" : "  OFF" );
+        return label + ( on ? "  ^2ON" : "  OFF" );
     }
-    return entry[ 0 ];
+    return label;
 }
 
 // text menu: previous and next item around the highlighted one
@@ -1550,19 +1554,30 @@ function menu_hud_set( key, elem, text )
 
 function menu_item_label( entry )
 {
+    label = menu_tr( entry[ 0 ] );
     if ( entry[ 1 ] == 2 )
     {
-        return entry[ 0 ] + "  ^3>";
+        return label + "  ^3>";
     }
     if ( entry[ 1 ] == 4 )
     {
         if ( menu_toggle_state( entry[ 2 ] ) )
         {
-            return entry[ 0 ] + "  ^2[ON]";
+            return label + "  ^2[ON]";
         }
-        return entry[ 0 ] + "  ^1[OFF]";
+        return label + "  ^1[OFF]";
     }
-    return entry[ 0 ];
+    return label;
+}
+
+// French label when Settings > Francais / French is on and zm_mod_menu_fr has one
+function menu_tr( text )
+{
+    if ( isdefined( self.zmm ) && istrue( self.zmm.toggles[ "lang_fr" ] ) && isdefined( level.zmm_fr ) && isdefined( level.zmm_fr[ text ] ) )
+    {
+        return level.zmm_fr[ text ];
+    }
+    return text;
 }
 
 function menu_render()
@@ -1604,20 +1619,20 @@ function menu_render()
         {
             self [[ level.zmm_on_render ]]( page.items[ state.cursor ], state.cursor - state.top );
         }
-        setdvar( @"zmm_view", "ZMM|" + state.theme + "|" + right + "|" + page.title + "|" + ( state.cursor - state.top ) + "|" + n + "|" + ( state.cursor + 1 ) + "/" + count + "|" + rows + "END" );
+        setdvar( @"zmm_view", "ZMM|" + state.theme + "|" + right + "|" + menu_tr( page.title ) + "|" + ( state.cursor - state.top ) + "|" + n + "|" + ( state.cursor + 1 ) + "/" + count + "|" + rows + "END" );
         return;
     }
 
     if ( !isdefined( state.hud ) )
     {
         // BO7 shows one centre line at a time and drops line breaks: previous / current / next on one line
-        self iprintlnbold( "^5" + page.title + " ^7" + position + "   " + menu_text_rows( page, state.cursor ) );
+        self iprintlnbold( "^5" + menu_tr( page.title ) + " ^7" + position + "   " + menu_text_rows( page, state.cursor ) );
         return;
     }
 
     hud = state.hud;
     menu_hud_set( "name", hud.name, level.zmm_name );
-    menu_hud_set( "subtitle", hud.subtitle, page.title );
+    menu_hud_set( "subtitle", hud.subtitle, menu_tr( page.title ) );
     // the whole list is one text element: 12 line elements only showed new text when it was
     // sent again ~0.3 s later, a single element (like the subtitle) shows it at once
     menu_hud_set( "list", hud.list, menu_page_list( page, state.top ) );
@@ -1630,37 +1645,38 @@ function menu_render()
 // one row of the zmm_view dvar: a marker for zm_mod_menu_post.lua, then the label
 function menu_view_row( entry )
 {
+    label = menu_tr( entry[ 0 ] );
     if ( entry[ 1 ] == 2 )
     {
-        return ">" + entry[ 0 ];
+        return ">" + label;
     }
     if ( entry[ 1 ] == 4 )
     {
-        return ( menu_toggle_state( entry[ 2 ] ) ? "+" : "-" ) + entry[ 0 ];
+        return ( menu_toggle_state( entry[ 2 ] ) ? "+" : "-" ) + label;
     }
     if ( entry[ 1 ] == 11 && isdefined( level.zmm_ext_on ) && isdefined( level.zmm_ext_on[ entry[ 2 ] ] ) )
     {
-        return ( self [[ level.zmm_ext_on[ entry[ 2 ] ] ]]( entry[ 3 ] ) ? "+" : "-" ) + entry[ 0 ];
+        return ( self [[ level.zmm_ext_on[ entry[ 2 ] ] ]]( entry[ 3 ] ) ? "+" : "-" ) + label;
     }
     // perk page: Have it / Eternal show their state
     if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk_have" )
     {
-        return ( self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( entry[ 3 ] ) ? "+" : "-" ) + entry[ 0 ];
+        return ( self namespace_377106c4017f7cda::function_e183e1e4f906ec3b( entry[ 3 ] ) ? "+" : "-" ) + label;
     }
     if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk_eternal" )
     {
-        return ( isdefined( self.zmm.eternal ) && istrue( self.zmm.eternal[ entry[ 3 ] ] ) ? "+" : "-" ) + entry[ 0 ];
+        return ( isdefined( self.zmm.eternal ) && istrue( self.zmm.eternal[ entry[ 3 ] ] ) ? "+" : "-" ) + label;
     }
     // Pick a perk: opens the perk page, eternal ones say so
     if ( entry[ 1 ] == 9 && entry[ 2 ] == "perk" )
     {
         if ( isdefined( self.zmm.eternal ) && istrue( self.zmm.eternal[ entry[ 3 ] ] ) )
         {
-            return ">" + entry[ 0 ] + " (eternal)";
+            return ">" + label + " " + menu_tr( "(eternal)" );
         }
-        return ">" + entry[ 0 ];
+        return ">" + label;
     }
-    return " " + entry[ 0 ];
+    return " " + label;
 }
 
 function menu_apply_theme()
@@ -1760,6 +1776,13 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
+    if ( key == "lang_fr" )
+    {
+        nengine_store_load( "fuzmenu", "settings" );
+        nengine_store_set( "fuzmenu", "lang", on ? "fr" : "en" );
+        nengine_store_save( "fuzmenu", "settings" );
+        return true;
+    }
     if ( key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" )
     {
         if ( key == "boss_bar" && menu_is_host() )
@@ -7047,7 +7070,7 @@ function menu_prof_save( slot )
     str = "x";
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && key != "zm_build" && key != "boss_bar" && menu_toggle_state( key ) )
+        if ( key != "menu_right" && key != "text_mode" && key != "start_logo" && key != "mouse_nav" && key != "aim_melee" && key != "zm_build" && key != "boss_bar" && key != "lang_fr" && menu_toggle_state( key ) )
         {
             str = str + "," + key;
         }
@@ -7347,7 +7370,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || key == "lang_fr" || !istrue( state.toggles[ key ] ) )
         {
             continue;
         }
