@@ -17,14 +17,17 @@ end
 H,HD=cachedHash(H),cachedHash(HD)
 local old=rawget(_G,"ZmmMenuView")
 if old then old.enabled=false;if old.clear then pcall(old.clear) end end
-local S={enabled=true,ticks=0}
+local S={enabled=true,ticks=0,q={},cgen=0}
 rawset(_G,"ZmmMenuView",S)
 
 -- sizes match the PNGs in images/ (cap 440x16, pill 428x34)
 local W,ROW,VIS,CAP,PAD=440,34,12,16,6
 local ROWS_TOP=78
 local THEMES={0x0099ff,0xff3333,0x33ff59,0xb34dff,0xff9900,0xffd933}
-local PANEL,TEXT,DIM,INK,PILL=0x111214,0xa8acb3,0x6b6f76,0x111214,0xf2f3f5
+-- Aether look: second colour per theme (cursor edge, corners, selected icon, sparks)
+local THEMES2={0x5ef0ff,0xff9a3d,0x3dffd0,0x3de8ff,0xffe14d,0xffffff}
+local PANEL,TEXT,DIM=0x111214,0xa8acb3,0x6b6f76
+local GLASS,ROWTXT,TRACK_OFF,MAGENTA=0x080d18,0xc9d1de,0x2a3346,0xff3df0
 -- main page labels (FR and EN) -> Assets/Images/fuzmenu_i_<icon>.png
 local ICONS={["Joueur"]="player",["Player"]="player",["OP Mode"]="op",["Teleports"]="teleport",["Teleportations"]="teleport",
     ["Armes"]="gun",["Weapons"]="gun",["Co-op"]="player",["Desactiver tous les mods"]="close",["Disable all mods"]="close",["Donner une arme"]="gun",["Give a weapon"]="gun",["Armes miracles"]="wonder",["Wonder weapons"]="wonder",
@@ -69,14 +72,28 @@ end
 local function passive(element)
     call(element,"SetHandleMouse",false);call(element,"setFocusable",false)
 end
-local function place(node,x,y,w,h,duration)
-    if duration and duration>0 and type(get(node,"SetTop"))=="function" then
-        local easing=get(get(rawget(_G,"LUI"),"EASING"),"outQuadratic")
-        call(node,"SetTop",y,duration,easing);call(node,"SetBottom",y+h,duration,easing)
+local function ease(name)
+    local E=get(rawget(_G,"LUI"),"EASING")
+    return get(E,name) or get(E,"outQuadratic") or get(E,"linear")
+end
+-- BO7 has no SetTop/SetLeft: SetAnchorsAndPosition takes the duration and easing itself (as the Kronos HUDs do)
+local function place(node,x,y,w,h,duration,easing)
+    if duration and duration>0 then
+        call(node,"SetAnchorsAndPosition",0,1,0,1,x,x+w,y,y+h,duration,ease(easing or "outCubic"))
     else
         call(node,"SetAnchorsAndPosition",0,1,0,1,x,x+w,y,y+h)
     end
 end
+local function fade(node,from,to,duration)
+    if from then call(node,"SetAlpha",from) end
+    call(node,"SetAlpha",to,duration)
+end
+-- timed steps (LUI has no setTimeout): fn runs after t ticks of ~16 ms; cascade steps die when a newer cascade starts
+local function later(t,fn,cascade)
+    S.q[#S.q+1]={S.ticks+t,cascade and S.cgen,fn}
+end
+local seed=12345
+local function rnd(a,b) seed=seed*16807%2147483647;return a+seed%(b-a+1) end
 local function rectangle(parent,x,y,w,h,rgb,alpha)
     local element=newElement("UIImage")
     place(element,x,y,w,h)
@@ -120,10 +137,10 @@ end
 
 local function clear()
     if S.frame then pcall(call,S.frame,"closeTree") end
-    S.frame=nil;S.parent=nil;S.last=nil;S.visible=false
+    S.frame=nil;S.parent=nil;S.last=nil;S.visible=false;S.q={};S.prev=nil
 end
 local function hide()
-    if S.frame and S.visible then call(S.frame,"SetAlpha",0,0) end
+    if S.frame and S.visible then call(S.frame,"SetAlpha",0,160);S.q={} end
     S.visible=false;S.last=nil
 end
 local function parentFor(root)
@@ -149,7 +166,7 @@ local function buildPic(frame)
     local box=newElement("UIElement")
     call(box,"SetAlpha",0);passive(box);call(frame,"addElement",box)
     S.pic=box;S.picKey=nil;S.picOn=false
-    S.picBack=rectangle(box,0,0,BW,BH,PANEL,.94)
+    S.picBack=rectangle(box,0,0,BW,BH,GLASS,.92)
     S.picEdge=rectangle(box,0,0,4,BH,THEMES[1],1)
     S.picLine=rectangle(box,4,BH-2,BW-4,2,THEMES[1],.5)
     S.picImage=rectangle(box,16,8,BW-28,(BW-28)/2,0xffffff,0)
@@ -161,29 +178,67 @@ local function build(parent)
     local frame=newElement("UIElement")
     call(frame,"SetAlpha",0);call(frame,"setPriority",1000);passive(frame);call(parent,"addElement",frame)
     S.frame=frame;S.parent=parent
-    -- rounded panel: top cap, stretched body, bottom cap
-    S.capTop=picture(frame,"fuzmenu_cap_t",0,0,W,CAP,PANEL,.96)
-    S.body=rectangle(frame,0,CAP,W,10,PANEL,.96)
-    S.capBottom=picture(frame,"fuzmenu_cap_b",0,0,W,CAP,PANEL,.96)
-    S.brand=label(frame,20,14,200,16,13,THEMES[1])
-    call(S.brand,"setText","FuzMenu")
-    S.count=label(frame,W-80,14,64,16,13,DIM)
-    S.title=label(frame,20,32,W-40,30,26,0xffffff,true)
-    S.pill=picture(frame,"fuzmenu_pill",PAD,ROWS_TOP,W-2*PAD,ROW,PILL,1)
-    S.rows={};S.icons={};S.chevs={};S.tracks={};S.knobs={}
-    for i=1,VIS do
-        local y=ROWS_TOP+(i-1)*ROW
-        S.icons[i]=rectangle(frame,20,y+8,18,18,TEXT,0)
-        S.rows[i]=label(frame,48,y+6,W-130,ROW-10,18,TEXT)
-        S.chevs[i]=picture(frame,"fuzmenu_i_chevron",W-34,y+10,14,14,DIM,0)
-        S.tracks[i]=picture(frame,"fuzmenu_switch",W-52,y+9,30,16,DIM,0)
-        S.knobs[i]=picture(frame,"fuzmenu_knob",W-50,y+11,12,12,0xffffff,0)
+    -- groups fade or move as one (header, cursor, each row, footer)
+    local function group(owner)
+        local g=newElement("UIElement")
+        place(g,0,0,W,10);passive(g);call(owner,"addElement",g)
+        return g
     end
-    -- scroll position bar
-    S.track=rectangle(frame,20,0,W-40,3,0x26282c,1)
-    S.fill=rectangle(frame,20,0,3,3,THEMES[1],1)
-    S.footer=label(frame,20,0,W-40,18,13,DIM)
-    S.footer2=label(frame,20,0,W-40,18,13,DIM)
+    -- glass panel: halo behind, rounded caps + stretched body, scanlines, a sweep band, 1 px glowing edge, corner brackets
+    S.halo=picture(frame,"fuzmenu_a_halo",-40,-40,W+80,100,THEMES[1],.5)
+    S.capTop=picture(frame,"fuzmenu_cap_t",0,0,W,CAP,GLASS,.9)
+    S.body=rectangle(frame,0,CAP,W,10,GLASS,.9)
+    S.capBottom=picture(frame,"fuzmenu_cap_b",0,0,W,CAP,GLASS,.9)
+    S.scan=picture(frame,"fuzmenu_a_scan",0,CAP,W,10,0xffffff,.035)
+    S.sweep=picture(frame,"fuzmenu_a_sweep",0,CAP,W,48,THEMES2[1],0)
+    S.edge=group(frame)
+    S.edgeT=picture(S.edge,"fuzmenu_a_edge_t",0,0,W,CAP,THEMES[1],1)
+    S.edgeB=picture(S.edge,"fuzmenu_a_edge_b",0,0,W,CAP,THEMES[1],1)
+    S.sideL=rectangle(S.edge,0,CAP,1,10,THEMES[1],1)
+    S.sideR=rectangle(S.edge,W-1,CAP,1,10,THEMES[1],1)
+    S.corners={}
+    for k,c in ipairs({"tl","tr","bl","br"}) do S.corners[k]=picture(S.edge,"fuzmenu_a_corner_"..c,0,0,16,16,THEMES2[1],1) end
+    S.head=group(frame)
+    S.brand=label(S.head,20,14,200,16,13,THEMES[1])
+    call(S.brand,"setText","FuzMenu")
+    S.count=label(S.head,W-80,14,64,16,13,DIM)
+    -- RGB-split copies of the title, shown on a page change
+    S.titleC=label(S.head,20,32,W-40,30,26,THEMES2[1],true)
+    S.titleM=label(S.head,20,32,W-40,30,26,MAGENTA,true)
+    S.title=label(S.head,20,32,W-40,30,26,0xffffff,true)
+    S.div=picture(S.head,"fuzmenu_a_line",20,66,W-40,4,THEMES[1],.7)
+    -- cursor: slow ghost bar, then the bar with its bright left edge and a glint
+    S.ghost=picture(frame,"fuzmenu_a_bar",PAD,ROWS_TOP,W-2*PAD,ROW,THEMES[1],.3)
+    S.cur=group(frame)
+    S.bar=picture(S.cur,"fuzmenu_a_bar",0,0,W-2*PAD,ROW,THEMES[1],1)
+    S.barEdge=picture(S.cur,"fuzmenu_a_baredge",0,0,8,ROW,THEMES2[1],1)
+    S.glint=picture(S.cur,"fuzmenu_a_glint",0,0,80,ROW,0xffffff,0)
+    S.flash=picture(frame,"fuzmenu_pill",PAD,ROWS_TOP,W-2*PAD,ROW,0xffffff,0)
+    S.line={}
+    for i=1,VIS do
+        local r={}
+        r.box=group(frame)
+        place(r.box,0,ROWS_TOP+(i-1)*ROW,W,ROW)
+        r.icon=rectangle(r.box,20,8,18,18,TEXT,0)
+        r.label=label(r.box,48,6,W-130,ROW-10,18,ROWTXT)
+        r.chev=picture(r.box,"fuzmenu_i_chevron",W-34,10,14,14,DIM,0)
+        r.track=picture(r.box,"fuzmenu_switch",W-52,9,30,16,TRACK_OFF,0)
+        r.glow=picture(r.box,"fuzmenu_a_dot",W-56,5,24,24,THEMES2[1],0)
+        r.knob=picture(r.box,"fuzmenu_knob",W-50,11,12,12,0xffffff,0)
+        S.line[i]=r
+    end
+    S.ring=picture(frame,"fuzmenu_a_ring",0,0,12,12,THEMES2[1],0)
+    S.slices={}
+    for k=1,3 do S.slices[k]=rectangle(frame,0,0,W,3,k==2 and MAGENTA or THEMES2[1],0) end
+    -- scroll position bar and key help
+    S.foot=group(frame)
+    S.track=rectangle(S.foot,20,0,W-40,3,0x1a2233,1)
+    S.fill=rectangle(S.foot,20,0,3,3,THEMES[1],1)
+    S.footer=label(S.foot,20,12,W-40,18,13,DIM)
+    S.footer2=label(S.foot,20,30,W-40,18,13,DIM)
+    S.boot=picture(frame,"fuzmenu_a_line",0,0,W,4,THEMES[1],0)
+    S.dots={}
+    for k=1,6 do S.dots[k]=picture(frame,"fuzmenu_a_dot",0,0,6,6,THEMES2[1],0) end
     S.pad=nil
     pcall(buildPic,frame)
 end
@@ -328,53 +383,183 @@ local function parse(text)
     return f,n
 end
 
+-- panel parts between y=t and y=b (open unfolds it from the middle; page changes resize it)
+local function panel(t,b,d)
+    local mid=b-t-2*CAP
+    place(S.halo,-40,t-40,W+80,b-t+80,d)
+    place(S.capTop,0,t,W,CAP,d);place(S.edgeT,0,t,W,CAP,d)
+    place(S.body,0,t+CAP,W,mid,d);place(S.scan,0,t+CAP,W,mid,d)
+    place(S.sideL,0,t+CAP,1,mid,d);place(S.sideR,W-1,t+CAP,1,mid,d)
+    place(S.capBottom,0,b-CAP,W,CAP,d);place(S.edgeB,0,b-CAP,W,CAP,d)
+    place(S.corners[1],-4,t-4,16,16,d);place(S.corners[2],W-12,t-4,16,16,d)
+    place(S.corners[3],-4,b-12,16,16,d);place(S.corners[4],W-12,b-12,16,16,d)
+end
+local function resetFx()
+    for _,e in ipairs({S.sweep,S.glint,S.ring,S.flash,S.titleC,S.titleM,S.slices[1],S.slices[2],S.slices[3]}) do call(e,"SetAlpha",0) end
+    for _,d in ipairs(S.dots) do call(d,"SetAlpha",0) end
+end
+-- title copies close in from -4/+4 px; divider stretches from the centre
+local function titleFx()
+    place(S.titleC,16,32,W-40,30);place(S.titleM,24,32,W-40,30)
+    fade(S.titleC,.8,0,200);fade(S.titleM,.8,0,200)
+    place(S.titleC,20,32,W-40,30,200);place(S.titleM,20,32,W-40,30,200)
+    place(S.div,W/2,66,0,4);place(S.div,20,66,W-40,4,300)
+end
+-- three thin cyan/magenta slices jump twice, then fade
+local function glitch()
+    for _,s in ipairs(S.slices) do
+        local function jump() place(s,rnd(-6,6),rnd(CAP,S.h-CAP-6),W,rnd(2,5)) end
+        jump();call(s,"SetAlpha",.8)
+        later(2,jump);later(4,jump);later(6,function() call(s,"SetAlpha",0,80) end)
+    end
+end
+local function toggleFx(i,kx)
+    local cx,cy=kx+6,ROWS_TOP+(i-1)*ROW+17
+    place(S.ring,cx-6,cy-6,12,12);fade(S.ring,.9,0,320);place(S.ring,cx-22,cy-22,44,44,320)
+    place(S.flash,PAD,ROWS_TOP+(i-1)*ROW,W-2*PAD,ROW);fade(S.flash,.35,0,220)
+end
+
 local function render(f,n)
-    local theme=THEMES[(tonumber(f[2]) or 0)+1] or THEMES[1]
+    local ti=(tonumber(f[2]) or 0)+1
+    local theme,second=THEMES[ti] or THEMES[1],THEMES2[ti] or THEMES2[1]
     local cursor=math.max(0,math.min(n-1,tonumber(f[5]) or 0))
     S.theme,S.right=theme,f[3]=="1"
     local fy=ROWS_TOP+n*ROW+10
     local h=fy+62
+    -- GSC titles are upper case ("MENU PRINCIPAL"): shown as "Menu principal"
+    local title=((f[4] or ""):lower():gsub("^%l",string.upper))
+    local p=S.prev or {}
+    local opening=not S.visible
+    local paging=not opening and title~=p.title
+    local resize=(not opening and p.h~=h) and 220 or nil
+    S.h=h
     -- top edge stays put when the page length changes
     if f[3]=="1" then call(S.frame,"SetAnchorsAndPosition",1,0,.5,.5,-W-60,-60,-330,-330+h)
     else call(S.frame,"SetAnchorsAndPosition",0,1,.5,.5,60,60+W,-330,-330+h) end
-    place(S.body,0,CAP,W,h-2*CAP);place(S.capBottom,0,h-CAP,W,CAP)
-    call(S.brand,"SetRGB",theme);call(S.fill,"SetRGB",theme)
-    -- GSC titles are upper case ("MENU PRINCIPAL"): shown as "Menu principal"
-    call(S.title,"setText",((f[4] or ""):lower():gsub("^%l",string.upper)))
+    for _,e in ipairs({S.halo,S.edgeT,S.edgeB,S.sideL,S.sideR,S.brand,S.fill,S.div,S.bar,S.ghost,S.boot}) do call(e,"SetRGB",theme) end
+    for _,e in ipairs({S.barEdge,S.sweep,S.ring,S.titleC,S.slices[1],S.slices[3],S.corners[1],S.corners[2],S.corners[3],S.corners[4]}) do call(e,"SetRGB",second) end
+    for _,d in ipairs(S.dots) do call(d,"SetRGB",second) end
+    if not opening then panel(0,h,resize) end
+    place(S.foot,0,fy,W,60,resize)
+    for _,e in ipairs({S.title,S.titleC,S.titleM}) do call(e,"setText",title) end
     local at,total=(f[7] or ""):match("(%d+)/(%d+)")
     call(S.count,"setText",at and string.format("%02d / %02d",tonumber(at),tonumber(total)) or "")
+    local markers={}
     for i=1,VIS do
+        local r=S.line[i]
         local shown,icon,marker=i<=n,nil,nil
         if shown then
-            local y=ROWS_TOP+(i-1)*ROW
             local row=f[i+7]
             marker=row:sub(1,1)
             local raw=(row:sub(2):gsub("%^%d",""))
             icon=ICONS[raw] and material("fuzmenu_i_"..ICONS[raw])
             local selected=i==cursor+1
-            local text=weaponName(raw):gsub("^%l",string.upper)
-            call(S.rows[i],"setText",text)
-            call(S.rows[i],"SetRGB",selected and INK or 0xd8dbe0)
-            place(S.rows[i],icon and 48 or 20,y+6,W-130,ROW-10)
-            if icon then call(S.icons[i],"setImage",icon);call(S.icons[i],"SetRGB",selected and INK or TEXT) end
-            call(S.chevs[i],"SetRGB",selected and INK or DIM)
-            call(S.tracks[i],"SetRGB",marker=="+" and theme or (selected and 0xc9ccd1 or 0x3a3c41))
-            place(S.knobs[i],marker=="+" and W-36 or W-50,y+11,12,12)
+            call(r.label,"setText",(weaponName(raw):gsub("^%l",string.upper)))
+            call(r.label,"SetRGB",selected and 0xffffff or ROWTXT)
+            -- selected text steps 6 px right
+            local x=(icon and 48 or 20)+(selected and 6 or 0)
+            if not opening and not paging and selected~=(i==(p.cursor or -1)+1) then place(r.label,x,6,W-130,ROW-10,140)
+            else place(r.label,x,6,W-130,ROW-10) end
+            if icon then call(r.icon,"setImage",icon);call(r.icon,"SetRGB",selected and second or TEXT) end
+            call(r.chev,"SetRGB",selected and second or DIM)
+            local on=marker=="+"
+            call(r.track,"SetRGB",on and theme or (selected and 0x5d6b85 or TRACK_OFF))
+            call(r.glow,"SetRGB",second)
+            local kx=on and W-36 or W-50
+            local was=p.markers and p.markers[i]
+            if not opening and not paging and (was=="+" or was=="-") and (marker=="+" or marker=="-") and was~=marker then
+                place(r.knob,kx,11,12,12,160,"outBack");place(r.glow,kx-6,5,24,24,160,"outBack")
+                pcall(toggleFx,i,kx)
+            else place(r.knob,kx,11,12,12);place(r.glow,kx-6,5,24,24) end
+            markers[i]=marker
         end
         local toggle=shown and (marker=="+" or marker=="-")
-        call(S.rows[i],"SetAlpha",shown and 1 or 0)
-        call(S.icons[i],"SetAlpha",icon and 1 or 0)
-        call(S.chevs[i],"SetAlpha",marker==">" and 1 or 0)
-        call(S.tracks[i],"SetAlpha",toggle and 1 or 0)
-        call(S.knobs[i],"SetAlpha",toggle and 1 or 0)
+        call(r.icon,"SetAlpha",icon and 1 or 0)
+        call(r.chev,"SetAlpha",marker==">" and 1 or 0)
+        call(r.track,"SetAlpha",toggle and 1 or 0)
+        call(r.knob,"SetAlpha",toggle and 1 or 0)
+        call(r.glow,"SetAlpha",marker=="+" and .6 or 0)
+        if not (opening or paging) then call(r.box,"SetAlpha",shown and 1 or 0) end
     end
-    place(S.pill,PAD,ROWS_TOP+cursor*ROW,W-2*PAD,ROW,S.visible and 80 or 0)
-    place(S.track,20,fy,W-40,3)
-    place(S.fill,20,fy,math.max(3,math.floor((W-40)*(tonumber(at) or 1)/math.max(1,tonumber(total) or 1))),3)
-    place(S.footer,20,fy+12,W-40,18)
-    place(S.footer2,20,fy+30,W-40,18)
-    if not S.visible then call(S.frame,"SetAlpha",1,120) end
+    -- rows slide in from +26 px, one every 2 ticks
+    if opening or paging then
+        S.cgen=S.cgen+1
+        for i=1,VIS do
+            local r,y=S.line[i],ROWS_TOP+(i-1)*ROW
+            call(r.box,"SetAlpha",0)
+            if i<=n then
+                place(r.box,26,y,W,ROW)
+                later((opening and 22 or 2)+(i-1)*2,function() place(r.box,0,y,W,ROW,230);call(r.box,"SetAlpha",1,230) end,true)
+            end
+        end
+    end
+    local cy=ROWS_TOP+cursor*ROW
+    local fw=math.max(3,math.floor((W-40)*(tonumber(at) or 1)/math.max(1,tonumber(total) or 1)))
+    if opening then
+        place(S.cur,PAD,cy,W-2*PAD,ROW);place(S.ghost,PAD,cy,W-2*PAD,ROW);place(S.fill,20,0,fw,3)
+    else
+        place(S.cur,PAD,cy,W-2*PAD,ROW,140);place(S.ghost,PAD,cy,W-2*PAD,ROW,310)
+        if cursor~=p.cursor then fade(S.count,.35,1,160);place(S.fill,20,0,fw,3,200) else place(S.fill,20,0,fw,3) end
+    end
+    if opening then
+        -- a line stretches from the centre, the panel unfolds from it, then header, cursor and rows arrive
+        call(S.frame,"SetAlpha",1,60)
+        resetFx()
+        for _,g in ipairs({S.head,S.cur,S.ghost,S.foot}) do call(g,"SetAlpha",0) end
+        local mid=math.floor(h/2)
+        panel(mid-CAP,mid+CAP)
+        place(S.boot,W/2-1,mid-2,2,4);fade(S.boot,0,1,80);place(S.boot,0,mid-2,W,4,180)
+        later(10,function() panel(0,S.h,260);call(S.boot,"SetAlpha",0,200) end)
+        later(18,function() call(S.head,"SetAlpha",1,180);pcall(titleFx) end)
+        later(22,function()
+            call(S.cur,"SetAlpha",1,200);call(S.ghost,"SetAlpha",.3,260);call(S.foot,"SetAlpha",1,260)
+            place(S.bar,0,0,2,ROW);place(S.bar,0,0,W-2*PAD,ROW,260)
+        end)
+    elseif paging then
+        pcall(titleFx);pcall(glitch)
+    end
+    S.prev={title=title,cursor=cursor,markers=markers,h=h}
     S.visible=true
+end
+
+-- runs every tick while the menu is open: timed steps, then the idle loops
+local function animate()
+    local q=S.q;S.q={}
+    for _,e in ipairs(q) do
+        if e[2] and e[2]~=S.cgen then
+        elseif S.ticks>=e[1] then pcall(e[3])
+        else S.q[#S.q+1]=e end
+    end
+    if not S.frame or not S.h then return end
+    local t=S.ticks
+    -- halo and edge breathe (2.4 s round trip)
+    if t%75==0 then
+        local up=t%150==0
+        call(S.halo,"SetAlpha",up and .75 or .35,1200)
+        call(S.edge,"SetAlpha",up and .95 or .5,1200)
+    end
+    -- scan band down the panel every ~4 s
+    if t%260==0 then
+        place(S.sweep,0,CAP,W,48);call(S.sweep,"SetAlpha",.14)
+        place(S.sweep,0,S.h-CAP-48,W,48,1600)
+        later(90,function() call(S.sweep,"SetAlpha",0,200) end)
+    end
+    -- glint across the cursor bar every ~3 s
+    if t%200==100 then
+        place(S.glint,0,0,80,ROW);call(S.glint,"SetAlpha",.45)
+        place(S.glint,W-2*PAD-80,0,80,ROW,800,"inOutSine")
+        later(40,function() call(S.glint,"SetAlpha",0,150) end)
+    end
+    -- sparks rise along the side edges, one every ~0.5 s
+    if t%34==0 then
+        S.dot=(S.dot or 0)%#S.dots+1
+        local d=S.dots[S.dot]
+        local x=rnd(0,1)==0 and rnd(4,28) or rnd(W-34,W-10)
+        local y=rnd(math.floor(S.h/2),S.h-20)
+        place(d,x,y,6,6);fade(d,0,.7,500)
+        place(d,x,y-rnd(60,110),6,6,3200)
+        later(30,function() call(d,"SetAlpha",0,2200) end)
+    end
 end
 
 -- start logo: the GSC sets zmm_logo to "1" once the host walks after the intro (Settings > Start logo)
@@ -505,6 +690,7 @@ local function tick()
     if text=="" or paused then
         hide();return
     end
+    if S.visible then pcall(animate) end
     local pad=read("zmm_pad")=="1" and "1" or "0"
     if S.footer and pad~=S.pad then
         S.pad=pad

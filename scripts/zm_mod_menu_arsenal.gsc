@@ -47,6 +47,7 @@ function ars_wait_menu()
     level.zmm_ext[ "ars_detect_spawn" ] = &ars_detect_spawn;
     level.zmm_ext[ "ars_ally" ] = &ars_ally;
     level.zmm_ext[ "ars_summon" ] = &ars_summon;
+    level.zmm_ext[ "ars_unally" ] = &ars_unally;
     level.zmm_ext[ "ars_size_look" ] = &ars_size_look;
     level.zmm_ext[ "ars_size_all" ] = &ars_size_all;
     level.zmm_ext[ "ars_ragdoll" ] = &ars_ragdoll;
@@ -872,6 +873,21 @@ function ars_summon( unused )
         }
     }
     self [[ level.zmm_notify_fn ]]( "Ally", 0 );
+}
+
+// kills every AI the menu turned or spawned as an ally (ars_owner is set on all of them)
+function ars_unally( unused )
+{
+    count = 0;
+    foreach ( ai in getaiarray() )
+    {
+        if ( isalive( ai ) && isdefined( ai.ars_owner ) )
+        {
+            ai kill();
+            count++;
+        }
+    }
+    self [[ level.zmm_notify_fn ]]( "Remove allies", count > 0 );
 }
 
 // self = AI, self.ars_owner = player: charm when the AI supports it, else force the team for a few frames

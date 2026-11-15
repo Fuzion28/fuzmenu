@@ -154,7 +154,8 @@ autoexec fr_init()
     t[ "Helmet 2 (gnome form: dive or go prone)" ] = "Casque 2 (forme gnome : plonger ou s'allonger)";
     t[ "Helmet 3 (yellow, more power-ups)" ] = "Casque 3 (jaune, plus de bonus)";
     t[ "Helmet 4 (white, frost blast on slide)" ] = "Casque 4 (blanc, souffle de givre en glissade)";
-    t[ "Hostile mode" ] = "Mode hostile";
+    t[ "Spawn as ally" ] = "Faire apparaitre en allie";
+    t[ "Remove allies" ] = "Retirer les allies";
     t[ "Howl" ] = "Hurlement";
     t[ "Hunter" ] = "Chasseur";
     t[ "Impact grenade" ] = "Grenade a impact";

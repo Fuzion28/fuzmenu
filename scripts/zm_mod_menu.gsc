@@ -109,6 +109,7 @@ autoexec init()
     level.zmm_points_fn = &menu_points_now;
     level callback::add( #"player_spawned", &menu_on_spawned );
     level callback::add( #"player_death", &menu_on_death );
+    level callback::add( #"equipment_use", &menu_on_equip_use );
     level callback::add( #"player_disconnect", &menu_on_disconnect );
     // player damage event used by Nexus 1.3: params.var_a87b62c261a8d114 is the damage, var_f5a880abf0b199dc the means of death
     level callback::add( #"hash_652eb614ba902b3d", &menu_on_damaged );
@@ -597,7 +598,8 @@ function menu_build_pages()
     ] );
 
     menu_add_page( "ZSpawn", "SPAWN A ZOMBIE", [
-        [ "Hostile mode", 4, "spawn_hostile" ],
+        [ "Spawn as ally", 4, "spawn_ally" ],
+        [ "Remove allies", 10, "ars_unally", 0 ],
         [ "Regular zombies", 2, "ZSpawnBase" ],
         [ "Specials", 2, "ZSpawnSpecial" ],
         [ "Elites", 2, "ZSpawnElite" ],
@@ -5027,6 +5029,17 @@ function menu_field_upgrade_loop()
 
 function menu_refill_offhands()
 {
+    // BO7 counts lethals / tacticals in its equipment system: weapon ammo alone gets used up
+    if ( isdefined( self.equipment ) )
+    {
+        foreach ( slot in [ "primary", "secondary" ] )
+        {
+            if ( isstring( self.equipment[ slot ] ) )
+            {
+                menu_refill_equip( self.equipment[ slot ] );
+            }
+        }
+    }
     offhands = self getweaponslistoffhands();
     if ( !isdefined( offhands ) )
     {
@@ -5038,6 +5051,29 @@ function menu_refill_offhands()
         {
             self givemaxammo( weap );
         }
+    }
+}
+
+function menu_refill_equip( ref )
+{
+    max = self namespace_c33cbcea986a02aa::function_75174cf5a80f1202( ref );
+    if ( isdefined( max ) && max > 0 )
+    {
+        self namespace_c33cbcea986a02aa::function_fc6818a92fc54458( ref, max );
+    }
+}
+
+// refill on throw: the 0.2 s loop is too late for 1-count items, which the game removes at 0
+function menu_on_equip_use( params )
+{
+    if ( !isdefined( params ) || !isplayer( params.player ) || !isstring( params.ref ) )
+    {
+        return;
+    }
+    player = params.player;
+    if ( player menu_loop_active( "equip_inf" ) || player menu_loop_active( "firepower" ) )
+    {
+        player menu_refill_equip( params.ref );
     }
 }
 
@@ -6627,7 +6663,7 @@ function menu_ai_on_map( aitype )
     return true;
 }
 
-// one zombie 200 units in front of the player, friendly unless Hostile mode is on
+// one zombie 200 units in front of the player, hostile unless "Spawn as ally" is on
 function menu_spawn_type( aitype )
 {
     if ( !menu_ai_on_map( aitype ) )
@@ -6636,7 +6672,7 @@ function menu_spawn_type( aitype )
     }
     self.zmm.spawn_pos = self.origin + anglestoforward( ( 0, self getplayerangles()[ 1 ], 0 ) ) * 200;
     origin = menu_nav_point( self.zmm.spawn_pos );
-    if ( !menu_toggle_state( "spawn_hostile" ) )
+    if ( menu_toggle_state( "spawn_ally" ) )
     {
         return menu_spawn_agent( aitype, origin );
     }
@@ -6663,6 +6699,7 @@ function menu_spawn_agent( aitype, origin )
     {
         return 0;
     }
+    agent.ars_owner = self;
     menu_turncoat( agent );
     return 1;
 }

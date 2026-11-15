@@ -138,6 +138,7 @@ function fun_pages()
         [ "Float zombies up", 10, "fun_chaos", "float" ],
         [ "Make looked-at an ally", 10, "ars_ally", 0 ],
         [ "Summon an ally", 10, "ars_summon", 0 ],
+        [ "Remove allies", 10, "ars_unally", 0 ],
         [ "Size", 2, "ArsSize" ],
         [ "Ragdoll looked-at", 10, "ars_ragdoll", 0 ],
         [ "Ragdoll all", 10, "ars_ragdoll", 1 ],
@@ -145,7 +146,6 @@ function fun_pages()
         [ "Back", 1, "" ] ] );
     [[ level.zmm_add_page ]]( "XFunVeh", "VEHICLES", [
         [ "Blood Burner bike", 10, "fun_veh", 0 ],
-        [ "Transport heli", 10, "fun_veh", 1 ],
         [ "Remove vehicles", 10, "fun_veh", 2 ],
         [ "Back", 1, "" ] ] );
     [[ level.zmm_add_page ]]( "XFunKill", "KILL EFFECTS", [
