@@ -391,6 +391,8 @@ function menu_build_pages()
         [ "Smoke", 9, "equip_t", "equip_smoke" ],
         [ "Void Claw (Rex)", 9, "equip_t", "equip_grappling_hook" ],
         [ "Void Talon (upgraded, Rex)", 9, "equip_t", "equip_grappling_hook_upgraded" ],
+        [ "Psych grenade", 9, "equip_t", "equip_gas_grenade" ],
+        [ "Shock charge", 9, "equip_t", "equip_shockstick" ],
         [ "Viking helmets (Totenreich)", 2, "Helmets" ],
         [ "Frag grenade", 9, "equip_l", "equip_frag" ],
         [ "Semtex", 9, "equip_l", "equip_semtex" ],
@@ -400,6 +402,10 @@ function menu_build_pages()
         [ "Combat axe", 9, "equip_l", "equip_combataxe" ],
         [ "C4", 9, "equip_l", "equip_c4" ],
         [ "Claymore", 9, "equip_l", "equip_claymore" ],
+        [ "Impact grenade", 9, "equip_l", "equip_impact_grenade" ],
+        [ "Thermo grenade", 9, "equip_l", "equip_thermobaric_grenade" ],
+        [ "Hunter", 9, "equip_l", "equip_smart_seeker" ],
+        [ "Turret", 9, "equip_l", "equip_mini_sentry" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -1811,6 +1817,11 @@ function menu_apply_toggle( key )
     if ( key == "ignoreme" )
     {
         self.ignoreme = on ? 1 : 0;
+        if ( on && !istrue( state.ignore_loop ) )
+        {
+            state.ignore_loop = 1;
+            self thread menu_ignore_loop();
+        }
         return true;
     }
     if ( key == "pause_spawn" )
@@ -4862,6 +4873,20 @@ function menu_god_loop()
     }
 }
 
+// game scripts reset ignoreme (scorestreaks, items...), so keep forcing it
+function menu_ignore_loop()
+{
+    while ( menu_loop_active( "ignoreme" ) )
+    {
+        self.ignoreme = 1;
+        wait 0.5;
+    }
+    if ( isdefined( self ) && isplayer( self ) && isdefined( self.zmm ) )
+    {
+        self.zmm.ignore_loop = 0;
+    }
+}
+
 function menu_apply_hornet( on )
 {
     if ( on )
@@ -6780,6 +6805,11 @@ function menu_param( label, action, value )
     else if ( action == "equip_l" || action == "equip_t" )
     {
         ok = menu_give_equip( action, value );
+        // slot of some BO7 items is unconfirmed: try the other one before reporting a failure
+        if ( !ok )
+        {
+            ok = menu_give_equip( action == "equip_l" ? "equip_t" : "equip_l", value );
+        }
     }
     else if ( action == "helmet" )
     {

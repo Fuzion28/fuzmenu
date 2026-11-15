@@ -295,15 +295,42 @@ function ars_ks_rows( rows )
     {
         return rows;
     }
-    refs = [ [ "death_machine_gun", "Death Machine" ], [ "hand_cannon", "Hand Cannon (streak)" ], [ "war_machine_launcher", "War Machine" ], [ "zm_minj", "Mutant Injection" ], [ "zm_dinj", "Injection (zm_dinj)" ], [ "reaper_drone", "Reaper Drone" ], [ "combat_bow", "Combat Bow" ], [ "smart_gun", "Smart Gun" ], [ "sniper_briefcase", "Sniper Briefcase" ], [ "skewer", "Skewer" ], [ "m202_launcher", "M202 Launcher" ], [ "chopper_door_gunner", "Chopper Gunner" ], [ "gunship", "Gunship" ], [ "precision_airstrike", "Precision Airstrike" ], [ "naplam_strike", "Napalm Strike" ], [ "hellstorm_missile", "Hellstorm" ], [ "valkyrie_rocket", "Valkyrie Rocket" ], [ "toma_strike", "Toma Strike" ], [ "cluster_spike", "Cluster Spike" ], [ "sentry_gun", "Sentry Gun" ], [ "remote_turret", "Remote Turret" ], [ "ims", "IMS" ], [ "lrad", "LRAD" ], [ "rcxd", "RC-XD" ], [ "ground_drone_unit", "Ground Drone" ], [ "remote_robot", "Remote Robot" ], [ "auto_drone", "Auto Drone" ], [ "switchblade_drone", "Switchblade Drone" ], [ "air_patrol", "Air Patrol" ], [ "airdrop", "Care Package" ], [ "uav", "UAV" ], [ "nuke_multi", "Nuke" ] ];
+    reg = level.var_93817cbeded9a978.var_5ee8074ece2d3715;
+    // the streak and the plain gun are the same Hand Cannon: keep the gun only as a fallback
+    if ( isdefined( reg[ "hand_cannon" ] ) )
+    {
+        rows = [];
+    }
+    refs = [ [ "death_machine_gun", "Death Machine" ], [ "hand_cannon", "Hand Cannon" ], [ "war_machine_launcher", "War Machine" ], [ "zm_minj", "Mutant Injection" ], [ "zm_dinj", "Injection (zm_dinj)" ], [ "reaper_drone", "Reaper Drone" ], [ "combat_bow", "Combat Bow" ], [ "smart_gun", "Smart Gun" ], [ "sniper_briefcase", "Sniper Briefcase" ], [ "skewer", "Skewer" ], [ "m202_launcher", "M202 Launcher" ], [ "chopper_door_gunner", "Chopper Gunner" ], [ "gunship", "Gunship" ], [ "precision_airstrike", "Precision Airstrike" ], [ "naplam_strike", "Napalm Strike" ], [ "hellstorm_missile", "Hellstorm" ], [ "valkyrie_rocket", "Valkyrie Rocket" ], [ "toma_strike", "Toma Strike" ], [ "cluster_spike", "Cluster Spike" ], [ "sentry_gun", "Sentry Gun" ], [ "remote_turret", "Remote Turret" ], [ "ims", "IMS" ], [ "lrad", "LRAD" ], [ "rcxd", "RC-XD" ], [ "ground_drone_unit", "Ground Drone" ], [ "remote_robot", "Remote Robot" ], [ "auto_drone", "Auto Drone" ], [ "switchblade_drone", "Switchblade Drone" ], [ "air_patrol", "Air Patrol" ], [ "airdrop", "Care Package" ], [ "uav", "UAV" ], [ "nuke_multi", "Nuke" ] ];
+    known = [];
     foreach ( r in refs )
     {
-        if ( isdefined( level.var_93817cbeded9a978.var_5ee8074ece2d3715[ r[ 0 ] ] ) )
+        known[ r[ 0 ] ] = 1;
+        if ( isdefined( reg[ r[ 0 ] ] ) )
         {
             rows[ rows.size ] = [ r[ 1 ], 10, "ars_ks", r[ 0 ] ];
         }
     }
+    // plus any other streak the mode registered under a text key (e.g. ones not in the list above)
+    foreach ( ref, unused in reg )
+    {
+        if ( isstring( ref ) && !isdefined( known[ ref ] ) )
+        {
+            rows[ rows.size ] = [ ars_streak_label( ref ), 10, "ars_ks", ref ];
+        }
+    }
     return rows;
+}
+
+// "remote_turret" -> "Remote Turret"
+function ars_streak_label( ref )
+{
+    label = "";
+    foreach ( w in strtok( ref, "_" ) )
+    {
+        label += ( label == "" ? "" : " " ) + toupper( getsubstr( w, 0, 1 ) ) + getsubstr( w, 1 );
+    }
+    return label;
 }
 
 // same call the speedrun practice uses to hand out the Death Machine
