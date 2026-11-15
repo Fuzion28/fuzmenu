@@ -42,7 +42,7 @@ Infinite ammo, Rapid fire, Fast reload, No recoil, Free wall ammo, Aimbot (while
 
 **Damage**
 - Weapon damage x2 to x100, Critical damage x2 to x25, Melee damage x2 to x100
-- Ammo mods: Brain Rot, Cryo Freeze, Dead Wire, Napalm Burst, Shadow Rift, Shatter Blast, Light Mend
+- Ammo mods: Brain Rot, Cryo Freeze, Dead Wire, Fireworks, Napalm Burst, Shadow Rift, Shatter Blast, Light Mend
 
 **Upgrade**
 - Pack-a-Punch I to IV, Free PaP

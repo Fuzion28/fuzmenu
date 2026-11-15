@@ -449,6 +449,7 @@ function menu_build_pages()
         [ "Brain Rot", 9, "ammo_mod", "brainrot" ],
         [ "Cryo Freeze", 9, "ammo_mod", "cryofreeze" ],
         [ "Dead Wire", 9, "ammo_mod", "deadwire" ],
+        [ "Fireworks", 9, "ammo_mod", "fw_ammomod" ],
         [ "Napalm Burst", 9, "ammo_mod", "napalmburst" ],
         [ "Shadow Rift", 9, "ammo_mod", "shadowvortex" ],
         [ "Shatter Blast", 9, "ammo_mod", "shatterblast" ],
