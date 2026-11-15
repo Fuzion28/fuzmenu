@@ -6,6 +6,8 @@
 #using script_1ade2fa7cae9593d;
 // operator (operator skins)
 #using script_2dc447b1dd033a26;
+// Killstreaks (scorestreak give)
+#using script_6995a3eb7d571a9f;
 
 #namespace zm_mod_menu_arsenal;
 
@@ -35,6 +37,7 @@ function ars_wait_menu()
         level.zmm_ext_on = [];
     }
     level.zmm_ext[ "ars_give" ] = &ars_give;
+    level.zmm_ext[ "ars_ks" ] = &ars_ks;
     level.zmm_ext[ "ars_shot" ] = &ars_shot;
     level.zmm_ext_on[ "ars_shot" ] = &ars_shot_on;
     level.zmm_ext[ "ars_wave" ] = &ars_wave;
@@ -246,7 +249,7 @@ function ars_scan_weapons()
     }
     level.ars_rows = ars_pick_rows( level.ars_rows );
     ars_list_page( "ArsNew", "NEW WEAPONS", level.ars_rows );
-    ars_list_page( "ArsStreak", "SCORESTREAK WEAPONS", ars_rows_for( [ "sat_pi_handcannon", "sat_lm_deathmachine" ] ) );
+    ars_list_page( "ArsStreak", "SCORESTREAK WEAPONS", ars_ks_rows( ars_rows_for( [ "sat_pi_handcannon" ] ) ) );
     ars_list_page( "ArsDoa", "DEAD OPS ARCADE GUNS", ars_rows_for( [ "sat_pi_ztronraygun", "sat_ar_ztrondg2", "sat_lm_ztronjetgun", "sat_lm_ztrondeathmachine", "sat_la_ztronwarmachine", "sat_la_ztroncrossbow", "sat_la_ztronpable3", "sat_lm_ztronlmg", "sat_sh_ztronshotgun", "sat_dm_ztronp38" ] ) );
 }
 
@@ -283,6 +286,31 @@ function ars_scan_one( key )
     }
     level.ars_listed[ base ] = 1;
     level.ars_rows[ level.ars_rows.size ] = [ ars_label( real ), 10, "ars_give", real ];
+}
+
+// scorestreaks are killstreaks, not guns: list the ones this mode registered (the rest would give nothing)
+function ars_ks_rows( rows )
+{
+    if ( !isdefined( level.var_93817cbeded9a978 ) || !isdefined( level.var_93817cbeded9a978.var_5ee8074ece2d3715 ) )
+    {
+        return rows;
+    }
+    refs = [ [ "death_machine_gun", "Death Machine" ], [ "hand_cannon", "Hand Cannon (streak)" ], [ "war_machine_launcher", "War Machine" ], [ "zm_minj", "Mutant Injection" ], [ "zm_dinj", "Injection (zm_dinj)" ], [ "reaper_drone", "Reaper Drone" ], [ "combat_bow", "Combat Bow" ], [ "smart_gun", "Smart Gun" ], [ "sniper_briefcase", "Sniper Briefcase" ], [ "skewer", "Skewer" ], [ "m202_launcher", "M202 Launcher" ], [ "chopper_door_gunner", "Chopper Gunner" ], [ "gunship", "Gunship" ], [ "precision_airstrike", "Precision Airstrike" ], [ "naplam_strike", "Napalm Strike" ], [ "hellstorm_missile", "Hellstorm" ], [ "valkyrie_rocket", "Valkyrie Rocket" ], [ "toma_strike", "Toma Strike" ], [ "cluster_spike", "Cluster Spike" ], [ "sentry_gun", "Sentry Gun" ], [ "remote_turret", "Remote Turret" ], [ "ims", "IMS" ], [ "lrad", "LRAD" ], [ "rcxd", "RC-XD" ], [ "ground_drone_unit", "Ground Drone" ], [ "remote_robot", "Remote Robot" ], [ "auto_drone", "Auto Drone" ], [ "switchblade_drone", "Switchblade Drone" ], [ "air_patrol", "Air Patrol" ], [ "airdrop", "Care Package" ], [ "uav", "UAV" ], [ "nuke_multi", "Nuke" ] ];
+    foreach ( r in refs )
+    {
+        if ( isdefined( level.var_93817cbeded9a978.var_5ee8074ece2d3715[ r[ 0 ] ] ) )
+        {
+            rows[ rows.size ] = [ r[ 1 ], 10, "ars_ks", r[ 0 ] ];
+        }
+    }
+    return rows;
+}
+
+// same call the speedrun practice uses to hand out the Death Machine
+function ars_ks( ref )
+{
+    self Killstreaks::function_545ea1188d337b59( ref, "other", undefined, undefined, undefined, 1 );
+    self [[ level.zmm_notify_fn ]]( "Scorestreak given", 1 );
 }
 
 function ars_rows_for( names )
