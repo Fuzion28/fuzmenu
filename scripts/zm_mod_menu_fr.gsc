@@ -243,6 +243,7 @@ autoexec fr_init()
     t[ "One-gun roulette" ] = "Roulette a une arme";
     t[ "One-hit wonder weapons" ] = "Armes miracles en un coup";
     t[ "Open all doors" ] = "Ouvrir toutes les portes";
+    t[ "Rampage Inducer" ] = "Inducteur de carnage";
     t[ "Orion lightning" ] = "Eclair d'Orion";
     t[ "Orion slam" ] = "Frappe d'Orion";
     t[ "Ornate door (some maps)" ] = "Porte ornee (certaines cartes)";

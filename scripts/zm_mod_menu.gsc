@@ -43,6 +43,8 @@
 #using script_8c8e132af264960;
 // loot (namespace_952965bfef60cff8): loot ID <-> ref, used by the saved builds
 #using script_1ade2fa7cae9593d;
+// rampage inducer (namespace_9f30f5390242b251): World toggle
+#using script_66cb9fe5d1bbff6;
 
 #namespace zm_mod_menu;
 
@@ -720,6 +722,7 @@ function menu_build_pages()
     menu_add_page( "World", "WORLD", [
         [ "Turn on power", 5, "power" ],
         [ "Open all doors", 5, "open_doors" ],
+        [ "Rampage Inducer", 4, "rampage" ],
         [ "Start Boss Fight", 5, "boss_fight" ],
         [ "Finish Boss Fight", 5, "boss_finish" ],
         [ "Skip to EE step", 10, "ui_ee_step", 0 ],
@@ -1850,6 +1853,10 @@ function menu_apply_toggle( key )
     if ( key == "pause_spawn" )
     {
         return menu_apply_pause_spawn( on );
+    }
+    if ( key == "rampage" )
+    {
+        return menu_apply_rampage( on );
     }
     if ( key == "back_shield" )
     {
@@ -4993,6 +5000,21 @@ function menu_apply_pause_spawn( on )
     return true;
 }
 
+// same switch as the spawn podium (script_66cb9fe5), without its vote
+function menu_apply_rampage( on )
+{
+    if ( !isdefined( level.var_f7b4ed545fb97f9b ) )
+    {
+        return false;
+    }
+    namespace_9f30f5390242b251::function_6485bdcb078ba68a( on );
+    if ( isdefined( level.var_f7b4ed545fb97f9b.interact ) )
+    {
+        level.var_f7b4ed545fb97f9b.interact.var_762f5d19a53f7c0 = on ? 1 : 0;
+    }
+    return true;
+}
+
 function menu_equip_loop()
 {
     while ( menu_loop_active( "equip_inf" ) || menu_loop_active( "firepower" ) )
@@ -6018,9 +6040,9 @@ function menu_give_wonder( name )
     self switchtoweapon( w_new );
     menu_fill_weapon_ammo( w_new );
     wait 0.25;
-    held = self hasweapon( w_new ) || menu_player_has_weapon( self, check_name );
+    self.zmm.ww_held = self hasweapon( w_new ) || menu_player_has_weapon( self, check_name );
 
-    if ( !held )
+    if ( !self.zmm.ww_held )
     {
         // inventory full: replace the held weapon
         cur = self getcurrentweapon();
@@ -6034,13 +6056,13 @@ function menu_give_wonder( name )
         self switchtoweapon( w_new );
         menu_fill_weapon_ammo( w_new );
         wait 0.25;
-        held = self hasweapon( w_new ) || menu_player_has_weapon( self, check_name );
+        self.zmm.ww_held = self hasweapon( w_new ) || menu_player_has_weapon( self, check_name );
     }
-    if ( held && issubstr( weapon_name, "sat_ww_" ) )
+    if ( self.zmm.ww_held && issubstr( name, "sat_ww_" ) )
     {
         self menu_ww_rarity( w_new );
     }
-    return held;
+    return self.zmm.ww_held;
 }
 
 // a plain giveweapon leaves a wonder weapon common (grey): the game's own pass (script_7f0ced39) sets rarity 6
@@ -6052,9 +6074,15 @@ function menu_ww_rarity( w )
         wait 0.1;
     }
     waittillframeend();
+    // the given weapon itself, as the melee path does (the slot copy below may not be the same object)
+    if ( namespace_91497aa03504c5ba::function_fb81bd2fe070faa6( w ) != 6 )
+    {
+        namespace_91497aa03504c5ba::function_40e1cbd0e1f47d1a( w, 6 );
+    }
     foreach ( pw in self function_e901142f713cb803( "primary" ) )
     {
-        if ( weapon::function_a8dc7d8044e307ed( pw ) && namespace_91497aa03504c5ba::function_fb81bd2fe070faa6( pw ) != 6 )
+        // the basename match covers given guns the wonder check does not flag
+        if ( ( weapon::function_a8dc7d8044e307ed( pw ) || pw.basename == w.basename ) && namespace_91497aa03504c5ba::function_fb81bd2fe070faa6( pw ) != 6 )
         {
             namespace_91497aa03504c5ba::function_40e1cbd0e1f47d1a( pw, 6 );
         }
