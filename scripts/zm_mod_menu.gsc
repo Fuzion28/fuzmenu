@@ -399,10 +399,8 @@ function menu_build_pages()
         [ "Semtex", 9, "equip_l", "equip_semtex" ],
         [ "Molotov", 9, "equip_l", "equip_molotov" ],
         [ "Cluster grenade", 9, "equip_l", "equip_cluster_grenade" ],
-        [ "Throwing knife", 9, "equip_l", "equip_throwing_knife" ],
         [ "Combat axe", 9, "equip_l", "equip_combataxe" ],
         [ "C4", 9, "equip_l", "equip_c4" ],
-        [ "Claymore", 9, "equip_l", "equip_claymore" ],
         [ "Impact grenade", 9, "equip_l", "equip_impact_grenade" ],
         [ "Thermo grenade", 9, "equip_l", "equip_thermobaric_grenade" ],
         [ "Hunter", 9, "equip_l", "equip_smart_seeker" ],
@@ -5998,7 +5996,12 @@ function menu_give_wonder( name )
     // melee wonder weapons (Jotunn Star) go to the melee slot like the boss drop, not a gun slot
     if ( weapon::function_6b74ecd475e99b4( w_new ) || name == "sat_ww_locust_zm" )
     {
-        return self menu_give_melee_wonder( w_new );
+        self.zmm.ww_melee_ok = self menu_give_melee_wonder( w_new );
+        if ( self.zmm.ww_melee_ok )
+        {
+            self menu_ww_rarity( w_new );
+        }
+        return self.zmm.ww_melee_ok;
     }
 
     // 3-weapon limit: replace the held gun. New locals in this function read back undefined in game,
@@ -6040,14 +6043,27 @@ function menu_give_wonder( name )
     return held;
 }
 
-// a plain giveweapon leaves a wonder weapon common (grey): give it the wonder weapon rarity once it is in hand
+// a plain giveweapon leaves a wonder weapon common (grey): the game's own pass (script_7f0ced39) sets rarity 6
+// on every wonder weapon in a primary slot. The old menu_rarity( 6 ) on the held gun hit the other gun when the raise was slow
 function menu_ww_rarity( w )
 {
     for ( self.zmm.ww_i = 0; self.zmm.ww_i < 20 && !( self getcurrentweapon() == w ); self.zmm.ww_i++ )
     {
         wait 0.1;
     }
-    self menu_rarity( 6 );
+    waittillframeend();
+    foreach ( pw in self function_e901142f713cb803( "primary" ) )
+    {
+        if ( weapon::function_a8dc7d8044e307ed( pw ) && namespace_91497aa03504c5ba::function_fb81bd2fe070faa6( pw ) != 6 )
+        {
+            namespace_91497aa03504c5ba::function_40e1cbd0e1f47d1a( pw, 6 );
+        }
+    }
+    // melee wonder weapons (Jotunn Star) sit in the melee slot, outside the primary list
+    if ( isdefined( self.var_cc1262e66dbb1c79 ) && self.var_cc1262e66dbb1c79 == w && namespace_91497aa03504c5ba::function_fb81bd2fe070faa6( w ) != 6 )
+    {
+        namespace_91497aa03504c5ba::function_40e1cbd0e1f47d1a( w, 6 );
+    }
 }
 
 function menu_points_now()

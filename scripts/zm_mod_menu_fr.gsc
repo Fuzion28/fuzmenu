@@ -378,7 +378,6 @@ autoexec fr_init()
     t[ "Text mode (no HUD)" ] = "Mode texte (sans HUD)";
     t[ "Thanos snap" ] = "Claquement de Thanos";
     t[ "Thermo grenade" ] = "Grenade thermobarique";
-    t[ "Throwing knife" ] = "Couteau de lancer";
     t[ "Tough zombies x10" ] = "Zombies resistants x10";
     t[ "Tough zombies x2" ] = "Zombies resistants x2";
     t[ "Tough zombies x5" ] = "Zombies resistants x5";
