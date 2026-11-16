@@ -45,6 +45,10 @@
 #using script_1ade2fa7cae9593d;
 // rampage inducer (namespace_9f30f5390242b251): World toggle
 #using script_66cb9fe5d1bbff6;
+// box/wall skins (namespace_d06db1f300d5fe3b): player's zombie weapon setup for given guns
+#using script_3b3991e0b89ff57b;
+// blueprint loot id -> base weapon loot id (namespace_e7560f700c901627): wonder weapon camo from the classes
+#using script_64d6db6054238125;
 
 #namespace zm_mod_menu;
 
@@ -3839,6 +3843,7 @@ function menu_load_build( label, slot )
 
 function menu_restore_build( slot )
 {
+    self.zmm.bk_skin = undefined;
     nengine_store_load( "fuzmenu", "builds" );
     self.zmm.bk_str = nengine_store_get( "fuzmenu", "b" + slot );
     if ( !isdefined( self.zmm.bk_str ) || self.zmm.bk_str == "" )
@@ -3851,10 +3856,16 @@ function menu_restore_build( slot )
 // Gunsmith zombie build of a weapon (sat_zm_weapon_setups.ddl: one setup per zm weapon), in the saved-build format "root,variant,camo,pap,att,var,..."
 function menu_zm_build( base )
 {
+    self.zmm.bk_skin = undefined;
     // the Gunsmith table only knows BO7 guns: never look a BO6 gun or a wonder weapon up in it
     if ( !issubstr( base, "sat_" ) || issubstr( base, "sat_ww_" ) )
     {
         return menu_slot_build( base );
+    }
+    // cosmetics (reticle, charm, stickers) from the box's cache, filled at connect only for the map's box and wall guns; its attachments are partial, so the build below keeps the Gunsmith ones
+    if ( isdefined( self.var_9b26c9a8c154627 ) )
+    {
+        self.zmm.bk_skin = self.var_9b26c9a8c154627[ weapon::buildweapon( base + "_mp" ).var_1b57e3034f84a054 ];
     }
     self.zmm.bk_id = self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponLootID" );
     if ( !isdefined( self.zmm.bk_id ) || self.zmm.bk_id == 0 )
@@ -3863,7 +3874,7 @@ function menu_zm_build( base )
     }
     // root loot id from the base name: the saved loot id can be a blueprint's
     self.zmm.bk_str = "" + namespace_952965bfef60cff8::function_fae2e7aa6e279966( base ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "weaponVariantID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "camoLootID" ) ?? 0 ) + ",0";
-    for ( self.zmm.bk_i = 0; self.zmm.bk_i < 16; self.zmm.bk_i++ )
+    for ( self.zmm.bk_i = 0; self.zmm.bk_i < 17; self.zmm.bk_i++ )
     {
         self.zmm.bk_str = self.zmm.bk_str + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentLootID" ) ?? 0 ) + "," + ( self function_4f5087ef1a3099ab( "weaponsetups", #"hash_55e618a5bf885779", base, "attachmentSetup", self.zmm.bk_i, "attachmentVariantID" ) ?? 0 );
     }
@@ -3906,7 +3917,7 @@ function menu_build_from_str()
     self.zmm.bk_camo = "camo_none";
     if ( int( self.zmm.bk_parts[ 2 ] ) != 0 )
     {
-        self.zmm.bk_camo = namespace_952965bfef60cff8::function_f54ecb89dfab8e8c( int( self.zmm.bk_parts[ 2 ] ) );
+        self.zmm.bk_camo = menu_camo_ref( namespace_952965bfef60cff8::function_f54ecb89dfab8e8c( int( self.zmm.bk_parts[ 2 ] ) ) );
         if ( !isdefined( self.zmm.bk_camo ) || self.zmm.bk_camo == "" )
         {
             self.zmm.bk_camo = "camo_none";
@@ -3914,7 +3925,7 @@ function menu_build_from_str()
     }
     self.zmm.bk_atts = [];
     self.zmm.bk_vars = [];
-    for ( self.zmm.bk_i = 0; self.zmm.bk_i < 16; self.zmm.bk_i++ )
+    for ( self.zmm.bk_i = 0; self.zmm.bk_i < 17; self.zmm.bk_i++ )
     {
         self.zmm.bk_atts[ self.zmm.bk_i ] = "none";
         self.zmm.bk_vars[ self.zmm.bk_i ] = 0;
@@ -3935,7 +3946,17 @@ function menu_build_from_str()
     }
     self.zmm.bk_var = int( self.zmm.bk_parts[ 1 ] );
     self.zmm.bk_bundle = weapon::function_2374da6f1b4fad4e( weapon::function_9312097aa84e222d( self.zmm.bk_root ), self.zmm.bk_var );
-    self.zmm.build_gun = weapon::function_5416d4273f081ce2( self.zmm.bk_root, self.zmm.bk_atts, self.zmm.bk_camo, "none", self.zmm.bk_var, self.zmm.bk_vars, "charm_none", [ "sticker_none", "sticker_none", "sticker_none", "sticker_none", "sticker_none" ], undefined, undefined, undefined, self.zmm.bk_bundle );
+    self.zmm.bk_ret = "none";
+    self.zmm.bk_charm = "charm_none";
+    self.zmm.bk_stk = [ "sticker_none", "sticker_none", "sticker_none", "sticker_none", "sticker_none" ];
+    if ( isdefined( self.zmm.bk_skin ) )
+    {
+        self.zmm.bk_ret = self.zmm.bk_skin.reticle;
+        self.zmm.bk_charm = self.zmm.bk_skin.cosmeticAttachment;
+        self.zmm.bk_stk = self.zmm.bk_skin.var_d32f152210d120b6;
+        self.zmm.bk_skin = undefined;
+    }
+    self.zmm.build_gun = weapon::function_5416d4273f081ce2( self.zmm.bk_root, self.zmm.bk_atts, self.zmm.bk_camo, self.zmm.bk_ret, self.zmm.bk_var, self.zmm.bk_vars, self.zmm.bk_charm, self.zmm.bk_stk, undefined, undefined, undefined, self.zmm.bk_bundle );
     if ( !isdefined( self.zmm.build_gun ) || isnullweapon( self.zmm.build_gun ) || !menu_give_build() )
     {
         return 0;
@@ -5886,6 +5907,11 @@ function menu_wonder_worker( label, name )
         return;
     }
     self.zmm.gun_loaded = 1;
+    self.zmm.ww_camo = undefined;
+    if ( menu_toggle_state( "zm_build" ) && issubstr( name, "sat_ww_" ) )
+    {
+        self menu_loadout_camo( removesubstr( name, "_mp" ) );
+    }
     if ( menu_toggle_state( "zm_build" ) && ( issubstr( name, "sat_" ) || issubstr( name, "t10_" ) ) && menu_zm_build( issubstr( name, "_mp" ) && !issubstr( name, "_mpug" ) ? removesubstr( name, "_mp" ) : name ) )
     {
         return;
@@ -5901,10 +5927,53 @@ function menu_wonder_worker( label, name )
     }
 }
 
+// camo loot ref -> camo table ref, as the box and class code do (script_3b3991e0b89ff57b, class::function_e6526d29276880dd)
+function menu_camo_ref( ref )
+{
+    if ( !isdefined( ref ) || ref == "" )
+    {
+        return ref;
+    }
+    return function_c9ae02897389d9b0( function_99ee3cf75e2291a6( %"hash_1345cc24140e89b8", ref ), #"ref" ) ?? ref;
+}
+
+// wonder weapons have no zombie Gunsmith setup: their camo only lives in the class loadouts (10 classes, primary and secondary)
+function menu_loadout_camo( base )
+{
+    if ( !isdefined( self.var_c7891db787a150d2 ) )
+    {
+        return;
+    }
+    self.zmm.lc_id = namespace_952965bfef60cff8::function_fae2e7aa6e279966( base );
+    for ( self.zmm.lc_l = 0; self.zmm.lc_l < 10; self.zmm.lc_l++ )
+    {
+        for ( self.zmm.lc_s = 0; self.zmm.lc_s < 2; self.zmm.lc_s++ )
+        {
+            // same stats reads as the game's class code (class::function_99a0f3993c9e16a8 / function_d55e0cb7c777b524), "class" can't be named here
+            self.zmm.lc_w = self function_4f5087ef1a3099ab( self.var_c7891db787a150d2, "loadouts", self.zmm.lc_l, "weaponSetups", self.zmm.lc_s, "weaponLootID" );
+            if ( isdefined( self.zmm.lc_w ) && self.zmm.lc_w != 0 && ( self.zmm.lc_w == self.zmm.lc_id || namespace_e7560f700c901627::function_636e43f4bcdc20b5( self.zmm.lc_w ) === self.zmm.lc_id ) )
+            {
+                self.zmm.lc_c = self function_4f5087ef1a3099ab( self.var_c7891db787a150d2, "loadouts", self.zmm.lc_l, "weaponSetups", self.zmm.lc_s, "camoLootID" );
+                if ( isdefined( self.zmm.lc_c ) && self.zmm.lc_c != 0 )
+                {
+                    self.zmm.ww_camo = menu_camo_ref( namespace_952965bfef60cff8::function_f54ecb89dfab8e8c( self.zmm.lc_c ) );
+                }
+                return;
+            }
+        }
+    }
+}
+
 function menu_build_wonder( weapon_name )
 {
     attachments = getweapondefaultattachments( weapon_name );
     self.var_ww_build = weapon::buildweapon( weapon_name, attachments );
+    if ( isdefined( self.zmm.ww_camo ) )
+    {
+        // same build call as the saved builds: variant id plus its bundle
+        self.var_ww_build = weapon::function_5416d4273f081ce2( removesubstr( weapon_name, "_mp" ), getweapondefaultattachments( weapon_name ), self.zmm.ww_camo ?? "camo_none", "none", 0, undefined, undefined, undefined, undefined, undefined, undefined, weapon::function_2374da6f1b4fad4e( weapon::function_9312097aa84e222d( removesubstr( weapon_name, "_mp" ) ), 0 ) );
+        self.zmm.ww_camo = undefined;
+    }
     if ( !istrue( self.zmm.sundergat ) )
     {
         return;
