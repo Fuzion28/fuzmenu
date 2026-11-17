@@ -6139,6 +6139,7 @@ function menu_wonder_worker( label, name )
     self.zmm.gun_loaded = 1;
     self.zmm.give_at = gettime();
     self.zmm.ww_camo = undefined;
+    self.zmm.ww_var = undefined;
     if ( menu_toggle_state( "zm_build" ) && issubstr( name, "sat_ww_" ) )
     {
         self menu_loadout_camo( removesubstr( name, "_mp" ) );
@@ -6171,6 +6172,17 @@ function menu_camo_ref( ref )
 // wonder weapons have no zombie Gunsmith setup: their camo only lives in the class loadouts (10 classes, primary and secondary)
 function menu_loadout_camo( base )
 {
+    // skin from Zombie Appearances > Wonder Weapons: a blueprint loot id, turned into a variant id like the game does (function_4d465a88a4c974d3)
+    self.zmm.ww_bp = self function_4f5087ef1a3099ab( level.var_96097f75c0ab40fa, "customizationSetup", "wonderWeaponCustomization", base, "blueprint" );
+    // the game reads either setup depending on the mode bundle (see emotes); try the other one when empty
+    if ( !isdefined( self.zmm.ww_bp ) || self.zmm.ww_bp == 0 )
+    {
+        self.zmm.ww_bp = self function_4f5087ef1a3099ab( level.var_96097f75c0ab40fa, "customizations", "wonderWeaponCustomization", base, "blueprint" );
+    }
+    if ( isdefined( self.zmm.ww_bp ) && self.zmm.ww_bp != 0 )
+    {
+        self.zmm.ww_var = function_4d465a88a4c974d3( self.zmm.ww_bp );
+    }
     if ( !isdefined( self.var_c7891db787a150d2 ) )
     {
         return;
@@ -6199,11 +6211,12 @@ function menu_build_wonder( weapon_name )
 {
     attachments = getweapondefaultattachments( weapon_name );
     self.var_ww_build = weapon::buildweapon( weapon_name, attachments );
-    if ( isdefined( self.zmm.ww_camo ) )
+    if ( isdefined( self.zmm.ww_camo ) || isdefined( self.zmm.ww_var ) )
     {
         // same build call as the saved builds: variant id plus its bundle
-        self.var_ww_build = weapon::function_5416d4273f081ce2( removesubstr( weapon_name, "_mp" ), getweapondefaultattachments( weapon_name ), self.zmm.ww_camo ?? "camo_none", "none", 0, undefined, undefined, undefined, undefined, undefined, undefined, weapon::function_2374da6f1b4fad4e( weapon::function_9312097aa84e222d( removesubstr( weapon_name, "_mp" ) ), 0 ) );
+        self.var_ww_build = weapon::function_5416d4273f081ce2( removesubstr( weapon_name, "_mp" ), getweapondefaultattachments( weapon_name ), self.zmm.ww_camo ?? "camo_none", "none", self.zmm.ww_var ?? 0, undefined, undefined, undefined, undefined, undefined, undefined, weapon::function_2374da6f1b4fad4e( weapon::function_9312097aa84e222d( removesubstr( weapon_name, "_mp" ) ), self.zmm.ww_var ?? 0 ) );
         self.zmm.ww_camo = undefined;
+        self.zmm.ww_var = undefined;
     }
     if ( !istrue( self.zmm.sundergat ) )
     {
