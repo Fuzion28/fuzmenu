@@ -1046,6 +1046,7 @@ function menu_on_spawned( params )
     self thread menu_input_loop();
     self thread menu_hk_loop();
     self thread menu_welcome();
+    self thread menu_auto_build_loop();
 }
 
 function menu_on_death( params )
@@ -2434,12 +2435,13 @@ function menu_sr_loop()
         menu_sr_show();
     }
     menu_sr_wait_move();
-    sr.start = gettime();
+    sr.start = sr.moved_at;
     while ( sr.index < sr.flags.size )
     {
+        menu_sr_boss_check();
         if ( menu_sr_done( sr.index ) )
         {
-            sr.times[ sr.index ] = gettime() - sr.start;
+            sr.times[ sr.index ] = menu_sr_now() - sr.start;
             if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
             {
                 sr.host menu_sr_store_pos( sr.index + 2 );
@@ -2528,7 +2530,7 @@ function menu_sr_delta( index )
 // Hands the speedrun data to zm_splitter_post.lua through dvars:
 //   zm_sr 1 = splits from this mod, 2 = still waiting, 0 = no splits for this map (own clock, F6 splits)
 //   zm_srmap map name, zm_srnames split names (|), zm_srpb PB times in ms (,), zm_srt finished split times in ms (,)
-//   zm_tms time in ms (0 until you move, stays at the last split when done), zm_srp 1 = practice
+//   zm_tms real time in ms (0 until you move, stays at the last split when done), zm_trun 1 while it counts, zm_srp 1 = practice
 function zmsplit_join( arr, sep )
 {
     out = "";
@@ -2665,12 +2667,15 @@ function zmsplit_bridge()
     setdvar( "zm_srbest", "" );
     setdvar( "zm_srt", "" );
     setdvar( "zm_split", 0 );
+    setdvar( "zm_trun", 0 );
+    setdvar( @"zm_rt", "0" );
+    setdvar( @"zm_rtq", "0" );
 
     while ( !isdefined( level.players ) || level.players.size == 0 )
     {
         waitframe();
     }
-    st.t0 = gettime();
+    st.t0 = zm_rt_now();
 
     while ( true )
     {
@@ -2744,36 +2749,42 @@ function zmsplit_bridge()
             if ( !isdefined( sr.start ) )
             {
                 setdvar( "zm_tms", 0 );
+                setdvar( "zm_trun", 0 );
             }
             else if ( sr.practice > 0 )
             {
                 if ( isdefined( sr.seg ) )
                 {
                     setdvar( "zm_tms", sr.seg );
+                    setdvar( "zm_trun", 0 );
                 }
                 else
                 {
-                    setdvar( "zm_tms", gettime() - sr.start );
+                    setdvar( "zm_tms", menu_sr_now() - sr.start );
+                    setdvar( "zm_trun", !isdefined( sr.boss_dead_at ) );
                 }
             }
             else if ( sr.index >= sr.flags.size )
             {
                 setdvar( "zm_tms", sr.times[ sr.times.size - 1 ] );
+                setdvar( "zm_trun", 0 );
             }
             else
             {
-                setdvar( "zm_tms", gettime() - sr.start );
+                setdvar( "zm_tms", menu_sr_now() - sr.start );
+                setdvar( "zm_trun", !isdefined( sr.boss_dead_at ) );
             }
         }
-        else if ( gettime() - st.t0 > 15000 )
+        else if ( zm_rt_now() - st.t0 > 15000 )
         {
             // no splits for this map: own clock from the spawn, split by hand with F6
             if ( !st.manual )
             {
                 st.manual = 1;
                 setdvar( "zm_sr", 0 );
+                setdvar( "zm_trun", 1 );
             }
-            setdvar( "zm_tms", gettime() - st.t0 );
+            setdvar( "zm_tms", zm_rt_now() - st.t0 );
         }
         waitframe();
     }
@@ -2870,13 +2881,18 @@ function menu_sr_practice()
     sr.index = sr.practice - 1;
     wait 0.5;
     menu_sr_wait_move();
-    sr.start = gettime();
+    sr.start = sr.moved_at;
     iprintlnbold( "^3Practice split " + sr.practice + ": ^7" + sr.names[ sr.index ] );
-    while ( !menu_sr_done( sr.index ) )
+    while ( true )
     {
+        menu_sr_boss_check();
+        if ( menu_sr_done( sr.index ) )
+        {
+            break;
+        }
         waitframe();
     }
-    sr.seg = gettime() - sr.start;
+    sr.seg = menu_sr_now() - sr.start;
     if ( sr.map != "zm_sat_mantis" && sr.map != "zm_sat_firefly" )
     {
         sr.host menu_sr_store_pos( sr.practice + 1 );
@@ -3273,15 +3289,20 @@ function menu_sr_wait_move()
     sr = level.zmm_sr;
     sr.from = sr.host.origin;
     sr.steps = 0;
-    // shortcut: the 5 steps make every timer start 0.25 s late, same for all runs; subtract it if runs must match real time
+    sr.moved_at = zm_rt_now();
+    // 5 steps in a row filter out the spawn settling, but the run is timed from the first one
     while ( isdefined( sr.host ) && sr.steps < 5 )
     {
-        wait 0.05;
+        waitframe();
         sr.delta = sr.host.origin - sr.from;
         sr.from = sr.host.origin;
         sr.moved = sr.delta[ 0 ] * sr.delta[ 0 ] + sr.delta[ 1 ] * sr.delta[ 1 ];
         if ( sr.moved > 2 && sr.moved < 2500 )
         {
+            if ( sr.steps == 0 )
+            {
+                sr.moved_at = zm_rt_now();
+            }
             sr.steps++;
         }
         else
@@ -3289,6 +3310,137 @@ function menu_sr_wait_move()
             sr.steps = 0;
         }
     }
+}
+
+// last split: the end flag comes with the cutscene, but the run ends when the boss dies
+function menu_sr_boss_check()
+{
+    sr = level.zmm_sr;
+    if ( sr.index != sr.flags.size - 1 )
+    {
+        return;
+    }
+    if ( menu_sr_boss_alive() )
+    {
+        sr.boss_dead_at = undefined;
+    }
+    else if ( !isdefined( sr.boss_dead_at ) && istrue( sr.boss_seen ) )
+    {
+        sr.boss_dead_at = zm_rt_now();
+    }
+}
+
+// the clock, frozen from the boss death until the end flag
+function menu_sr_now()
+{
+    sr = level.zmm_sr;
+    if ( isdefined( sr.boss_dead_at ) && sr.index == sr.flags.size - 1 )
+    {
+        return sr.boss_dead_at;
+    }
+    return zm_rt_now();
+}
+
+// the boss AIs FuzMenu knows, per map; Astra's Uranus dies before Neptune spawns, so a later boss resets the death time
+function menu_sr_boss_alive()
+{
+    sr = level.zmm_sr;
+    // the game's boss health bar: while it is up, each player points at the boss it shows
+    // the bar stays up until the AI dies at the cutscene, so read its fill like the game does:
+    // width = max( full * health / maxhealth, 1 ), empty when health <= 0 or maxhealth == 1
+    full = 500;
+    if ( isdefined( level.var_14719442b1c9d3ae ) )
+    {
+        full = level.var_14719442b1c9d3ae;
+    }
+    foreach ( player in level.players )
+    {
+        boss = player.var_7fa280bb4c563541;
+        if ( isdefined( boss ) )
+        {
+            sr.bar_seen = 1;
+            sr.boss_seen = 1;
+            if ( !isdefined( boss.health ) || !isdefined( boss.var_bf80442dd2797c82 ) )
+            {
+                return true;
+            }
+            if ( boss.health > 0 && boss.var_bf80442dd2797c82 != 1 && full * boss.health / boss.var_bf80442dd2797c82 > 1 )
+            {
+                return true;
+            }
+        }
+    }
+    if ( istrue( sr.bar_seen ) )
+    {
+        return false;
+    }
+    bosses = [];
+    if ( isdefined( level.var_302bd0b94da202e7 ) )
+    {
+        bosses[ bosses.size ] = level.var_302bd0b94da202e7.entity;
+    }
+    if ( isdefined( level.var_703ffbe28e244b74 ) )
+    {
+        bosses[ bosses.size ] = level.var_703ffbe28e244b74.entity;
+    }
+    if ( isdefined( level.var_4630353ece991c26 ) )
+    {
+        bosses[ bosses.size ] = level.var_4630353ece991c26.entity;
+    }
+    if ( isdefined( level.var_d61ad599a05754c7 ) )
+    {
+        bosses[ bosses.size ] = level.var_d61ad599a05754c7.var_469a4c6b75d9c6cd;
+    }
+    bosses[ bosses.size ] = level.var_99042256ee32a16d;
+    bosses[ bosses.size ] = level.zombie_neptune;
+    team = "team_two_hundred";
+    if ( isdefined( level.zombie_team ) )
+    {
+        team = level.zombie_team;
+    }
+    foreach ( ai in getaiarray( team ) )
+    {
+        if ( isdefined( ai ) && ai.var_e4312c2c1a4a2190 === "boss" )
+        {
+            bosses[ bosses.size ] = ai;
+        }
+    }
+    foreach ( boss in bosses )
+    {
+        if ( isdefined( boss ) && isalive( boss ) )
+        {
+            sr.boss_seen = 1;
+            return true;
+        }
+    }
+    return false;
+}
+
+// real time (speedruns are timed in real time): gettime() stops while the game is paused,
+// so it follows the Lua wall clock zm_rt (every frame with a fine clock, past a 1.2 s slack with a whole-second one)
+// shortcut: a whole-second clock is off by up to 1.2 s, and gettime() alone is used without the Lua
+function zm_rt_now()
+{
+    if ( !isdefined( level.zm_rt_add ) )
+    {
+        level.zm_rt_add = 0;
+    }
+    level.zm_rt_wall = int( getdvar( @"zm_rt" ) );
+    if ( level.zm_rt_wall > 0 )
+    {
+        level.zm_rt_lag = level.zm_rt_wall - gettime();
+        if ( !isdefined( level.zm_rt_base ) )
+        {
+            level.zm_rt_base = level.zm_rt_lag;
+        }
+        level.zm_rt_off = level.zm_rt_lag - level.zm_rt_base - level.zm_rt_add;
+        level.zm_rt_slack = getdvar( @"zm_rtq" ) == "1" ? 0 : 1200;
+        if ( level.zm_rt_off > level.zm_rt_slack || level.zm_rt_off < 0 - level.zm_rt_slack )
+        {
+            level.zm_rt_add = level.zm_rt_lag - level.zm_rt_base;
+        }
+    }
+    return gettime() + level.zm_rt_add;
 }
 
 // gap to the same split's segment in the PB
@@ -3899,6 +4051,83 @@ function menu_slot_build( base )
         }
     }
     return 0;
+}
+
+// "Use my zombie build" also rebuilds a gun the player gets from the game (wall, box): a gun name not in the last
+// inventory scan, picked up with the menu closed and not just given by the menu; its PaP tier and rarity are kept
+function menu_auto_build_loop()
+{
+    self endon( #"disconnect" );
+    self.zmm.ab_seen = [];
+    while ( isdefined( self ) && isdefined( self.zmm ) )
+    {
+        wait 0.25;
+        self.zmm.ab_names = [];
+        self.zmm.ab_new = undefined;
+        if ( isdefined( self.primaryinventory ) )
+        {
+            foreach ( w in self.primaryinventory )
+            {
+                if ( isdefined( w ) && !isnullweapon( w ) && isdefined( w.basename ) )
+                {
+                    self.zmm.ab_names[ self.zmm.ab_names.size ] = w.basename;
+                    if ( !menu_ab_seen( w.basename ) && ( issubstr( w.basename, "sat_" ) || issubstr( w.basename, "t10_" ) ) && !issubstr( w.basename, "sat_ww_" ) && !issubstr( w.basename, "_me_" ) )
+                    {
+                        self.zmm.ab_new = w;
+                    }
+                }
+            }
+        }
+        // the first scan (spawn guns) only fills the list
+        if ( isdefined( self.zmm.ab_new ) && self.zmm.ab_first_done === 1 && menu_toggle_state( "zm_build" ) && !self.zmm.is_open && gettime() - ( self.zmm.give_at ?? 0 ) > 5000 && isalive( self ) )
+        {
+            self menu_auto_build( self.zmm.ab_new );
+        }
+        self.zmm.ab_first_done = 1;
+        self.zmm.ab_seen = self.zmm.ab_names;
+    }
+}
+
+function menu_ab_seen( name )
+{
+    foreach ( seen in self.zmm.ab_seen )
+    {
+        if ( seen == name )
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+function menu_auto_build( w )
+{
+    // the game switches to a bought gun: read its PaP tier and rarity from the hand
+    for ( self.zmm.ab_wi = 0; self.zmm.ab_wi < 20 && self getcurrentweapon() != w; self.zmm.ab_wi++ )
+    {
+        wait 0.1;
+    }
+    if ( self getcurrentweapon() != w )
+    {
+        return;
+    }
+    self menu_gg_read();
+    self.zmm.ab_base = w.basename;
+    if ( issubstr( self.zmm.ab_base, "_mp" ) && !issubstr( self.zmm.ab_base, "_mpug" ) )
+    {
+        self.zmm.ab_base = removesubstr( self.zmm.ab_base, "_mp" );
+    }
+    // with 3 guns the build replaces the held one (the bought gun); with fewer the bought gun is taken after
+    if ( !menu_zm_build( self.zmm.ab_base ) )
+    {
+        return;
+    }
+    if ( w != self.zmm.build_gun && self hasweapon( w ) )
+    {
+        self takeweapon( w );
+    }
+    self menu_gg_apply();
+    self.zmm.give_at = gettime();
 }
 
 // builds and gives the gun of self.zmm.bk_str
@@ -5747,6 +5976,7 @@ function menu_rarity( rarity )
 // Gun Game (zm_mod_menu_fun's fun_gg_give): the next gun keeps the PaP tier and rarity of the held one
 function menu_gg_read()
 {
+    self.zmm.give_at = gettime();
     self.zmm.gg_w = self getcurrentweapon();
     if ( !isdefined( self.zmm.gg_pap ) )
     {
@@ -5907,6 +6137,7 @@ function menu_wonder_worker( label, name )
         return;
     }
     self.zmm.gun_loaded = 1;
+    self.zmm.give_at = gettime();
     self.zmm.ww_camo = undefined;
     if ( menu_toggle_state( "zm_build" ) && issubstr( name, "sat_ww_" ) )
     {
@@ -6394,6 +6625,8 @@ function menu_ee_run( split, step )
     sr.ee_step = step;
     menu_sr_split_quests();
     sr.ee_step = undefined;
+    // a real run has them open by then, and the game's own step skip opens them too (Ashes: Tessie's wisp drive)
+    menu_open_doors();
     // the last split is the boss: hornet and locust start it in the quest part
     if ( split == sr.names.size && sr.map != "zm_sat_hornet" && sr.map != "zm_sat_locust" )
     {

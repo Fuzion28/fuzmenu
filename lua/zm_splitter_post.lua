@@ -38,6 +38,9 @@ local ROWH=26
 local GREEN,LGREEN,LRED,RED=0x00cc36,0x52cc73,0xfc7064,0xff1700
 local CURRENT,PBBLUE,DIM,WHITE,IDLE=0x3373f4,0x16a6ff,0x9a9ea6,0xffffff,0xacacac
 local GOLD=0xd8af1f      -- split die je snelste segment ooit was (BestSegmentColor uit je .lsl)
+local GOLD_WHEN_BEHIND=false   -- true = ook goud als je totaal achterloopt maar dit stuk wel je snelste ooit was (zoals LiveSplit)
+local LIVE_WINDOW=30000     -- ms voor de PB-tijd van de huidige split waarop de live delta begint te verkleuren naar rood
+local LIVE_FROM=0xffffff       -- beginkleur van de live delta (wit)
 
 local C=rawget(_G,"CLUA")
 local H=rawget(_G,"xhash") or rawget(_G,"PushXHash") or (type(C)=="table" and C.PushXHash)
@@ -350,8 +353,8 @@ local function autoView(ms)
     local total=#names
     local finished=total>0 and #times>=total
     local last=pb[total]
-    local practice=read("zm_srp")=="1"
     -- beste segmenten: de mod houdt ze zelf bij (zm_srbest); het kaartbestand vult aan waar nog niets is
+    local practice=read("zm_srp")=="1"
     return {names=names,pb=pb,times=times,shown=ms,cfg=cfg,practice=practice,best=list("zm_srbest","[^,]+",true),
         newpb=not practice and finished and (not last or last==0 or times[total]<last)}
 end
@@ -399,6 +402,18 @@ local function deltaColor(view,idx,d)
     return gaining and LRED or RED
 end
 
+-- live delta op de huidige split: vanaf LIVE_WINDOW ms voor de PB-tijd van die split verschijnt hij en kleurt
+-- hij geleidelijk van wit naar rood; op de PB-tijd (en daarna) is hij helemaal rood
+local function liveColor(d)
+    local t=1+d/LIVE_WINDOW
+    if t<0 then t=0 elseif t>1 then t=1 end
+    local function ch(shift)
+        local from=math.floor(LIVE_FROM/shift)%256
+        local to=math.floor(RED/shift)%256
+        return math.floor(from+(to-from)*t+0.5)
+    end
+    return ch(65536)*65536+ch(256)*256+ch(1)
+end
 local function displayName(view,idx)
     local original=view.names[idx]
     local cfg=view.cfg
@@ -447,7 +462,9 @@ local function render(view)
                         -- goud: dit segment was je snelste ooit (de mod heeft het beste segment al bijgewerkt)
                         local b=view.best and view.best[idx]
                         local seg=view.times[idx]-(idx>1 and view.times[idx-1] or 0)
-                        if b and b>0 and seg<=b then drgb=GOLD end
+                        -- EN sneller dan het segment van je PB; wie op dit stuk verliest, krijgt nooit goud
+                        local pprev=idx>1 and validPb(view,idx-1) or 0
+                        if b and b>0 and seg<=b and pprev and seg<p-pprev and (d<0 or GOLD_WHEN_BEHIND) then drgb=GOLD end
                     end
                     ttext=fmtSec(view.times[idx])
                 end
@@ -455,7 +472,7 @@ local function render(view)
                 ttext=p and fmtSec(p) or "-"
                 if idx==done+1 then
                     isCurrent=true
-                    if p and not view.practice and shown>p then dtext=fmtDelta(shown-p);drgb=RED end
+                    if p and not view.practice and shown>p-LIVE_WINDOW then dtext=fmtDelta(shown-p);drgb=liveColor(shown-p) end
                 end
             end
         end
@@ -563,6 +580,32 @@ local function render(view)
     put(S.dbg,SHOW_KEYS and ("toets: "..(S.lastKey or "-")) or "",DIM)
 end
 
+-- echte tijd voor de GSC (zm_rt, ms): loopt door als het spel pauzeert, gettime() niet
+-- os.clock is op Windows de wandklok sinds de start van het spel; anders Engine.GetSystemTime (seconden)
+local RT=rawget(_G,"ZmRealTime") or {}
+rawset(_G,"ZmRealTime",RT)
+local function wallMs()
+    if type(os)=="table" and type(os.clock)=="function" then
+        local ok,c=pcall(os.clock)
+        if ok and type(c)=="number" then RT.fine=true;return c*1000 end
+    end
+    local ok,sec=pcall(invoke,rawget(_G,"Engine"),"GetSystemTime")
+    if ok and type(sec)=="number" then
+        if sec~=math.floor(sec) then RT.fine=true end
+        return sec*1000
+    end
+end
+local function writeRealTime()
+    local now=wallMs()
+    if not now then return end
+    if not RT.base then RT.base=now end
+    local set=get(rawget(_G,"Dvar"),"SetDvarString")
+    if type(set)~="function" then return now end
+    pcall(set,HD("zm_rt"),tostring(math.floor(now-RT.base)+1))
+    pcall(set,HD("zm_rtq"),RT.fine and "1" or "0")
+    return now
+end
+
 local function tick()
     S.ticks=S.ticks+1
     -- F8: map_fast_restart
@@ -576,9 +619,20 @@ local function tick()
         newRun();S.lastMs=0;S.splitRequest=false;S.undoRequest=false;S.raw={}
         return
     end
+    local now=writeRealTime()
     local ms=tonumber(read("zm_tms") or "")
     local parent=displayParent()
     if not ms or not parent then return end
+    -- de GSC schrijft zm_tms per server-frame en niet tijdens de pauze: tussendoor loopt de timer
+    -- hier verder op de wandklok, elke frame, en nooit terug (een nieuwe run zakt meer dan 1 s)
+    if ms~=S.rtMs or not now then S.rtMs=ms;S.rtAt=now end
+    if read("zm_trun")=="1" and now and S.rtAt then
+        local shown=ms+math.floor(now-S.rtAt)
+        if S.shown and shown<S.shown and shown>S.shown-1000 then shown=S.shown end
+        S.shown=shown;ms=shown
+    else
+        S.shown=nil
+    end
     local mode=read("zm_sr")
     -- de GSC wacht nog op de splits van het menu (net na het laden): nog niets tonen
     if mode=="2" then
@@ -611,6 +665,12 @@ local function timerRoot()
 end
 local function ensureTimer()
     if not S.enabled then return end
+    -- in het hoofdmenu draait er niets van ons: geen verborgen element en geen timer (voorkomt dat het
+    -- terugkeren naar het menu of het laden van een andere map vastloopt)
+    if not inMatch() then
+        if S.host then pcall(call,S.host,"closeTree");S.host=nil end
+        return
+    end
     local root=timerRoot()
     if not root then return end
     local okParent,parent=pcall(call,S.host,"getParent")
@@ -628,6 +688,12 @@ local function ensureTimer()
                 if not S.enabled or S.host~=host then return end
                 local ok=pcall(tick)
                 if not ok then clear() end
+                -- uit de match: opruimen en stoppen; de eerstvolgende toetsaanslag in een match start het weer
+                if not inMatch() then
+                    pcall(call,host,"closeTree")
+                    if S.host==host then S.host=nil end
+                    return
+                end
                 pcall(schedule)
             end
         end
