@@ -133,6 +133,7 @@ autoexec fr_init()
     t[ "Go to spot 5" ] = "Aller au point 5";
     t[ "Gobblegum machine" ] = "Machine a gobblegums";
     t[ "God mode" ] = "Mode dieu";
+    t[ "God mode (on/off)" ] = "Mode dieu (on/off)";
     t[ "Golden armor" ] = "Armure doree";
     t[ "Grab / throw zombie" ] = "Attraper / lancer un zombie";
     t[ "Gravity" ] = "Gravite";
@@ -160,6 +161,7 @@ autoexec fr_init()
     t[ "Hunter" ] = "Chasseur";
     t[ "Impact grenade" ] = "Grenade a impact";
     t[ "Infinite ammo" ] = "Munitions infinies";
+    t[ "Infinite ammo (on/off)" ] = "Munitions infinies (on/off)";
     t[ "Infinite equipment" ] = "Equipement infini";
     t[ "Infinite field upgrade" ] = "Amelioration de terrain infinie";
     t[ "Infinite points" ] = "Points infinis";
@@ -422,6 +424,7 @@ autoexec fr_init()
     t[ "Zombie toys" ] = "Jouets zombies";
     t[ "Zombie window" ] = "Fenetre a zombies";
     t[ "Zombies ignore me" ] = "Les zombies m'ignorent";
+    t[ "Zombies ignore player (on/off)" ] = "Les zombies l'ignorent (on/off)";
     t[ "Zombies in a line (training)" ] = "Zombies en file (train)";
     t[ "Zombies orbit me" ] = "Les zombies tournent autour de moi";
     t[ "Zombies per round" ] = "Zombies par manche";

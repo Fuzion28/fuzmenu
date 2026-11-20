@@ -163,6 +163,15 @@ function menu_build_pages()
     ] );
 
     menu_add_page( "CoopAction", "PLAYER", [
+        [ "God mode (on/off)", 9, "coop_do", "god_mode" ],
+        [ "Infinite ammo (on/off)", 9, "coop_do", "extra_ammo" ],
+        [ "Zombies ignore player (on/off)", 9, "coop_do", "ignoreme" ],
+        [ "Points", 2, "CoopPoints" ],
+        [ "Max points & scrap", 9, "coop_do", "fill" ],
+        [ "All perks", 9, "coop_do", "perks" ],
+        [ "Remove all perks", 9, "coop_do", "noperks" ],
+        [ "Refill weapons", 9, "coop_do", "refill" ],
+        [ "Restore health", 9, "coop_do", "health" ],
         [ "Revive", 9, "coop_do", "revive" ],
         [ "Go to player", 9, "coop_do", "goto" ],
         [ "Bring to me", 9, "coop_do", "bring" ],
@@ -502,6 +511,7 @@ function menu_build_pages()
         [ "Back", 1, "" ]
     ] );
     menu_currency_page( "Points", "POINTS", "points" );
+    menu_currency_page( "CoopPoints", "POINTS", "coop_pts" );
     menu_currency_page( "Salvage", "SCRAP", "salvage" );
 
     menu_add_page( "Armor", "ARMOR", [
@@ -7396,6 +7406,11 @@ function menu_param( label, action, value )
     {
         ok = menu_coop_do( value );
     }
+    else if ( action == "coop_pts" )
+    {
+        target = self.zmm.coop_target;
+        ok = isdefined( target ) && isplayer( target ) && target menu_add_currency( "points", value );
+    }
     else if ( action == "prof_save" )
     {
         menu_prof_save( value );
@@ -7443,6 +7458,48 @@ function menu_coop_do( action )
             return 0;
         }
         target thread namespace_b80f99000c537b86::exit( "last_stand_revived", self );
+        return 1;
+    }
+    // the target's own menu state, so their menu shows the toggle and their loops stop on Disable all mods
+    if ( action == "god_mode" || action == "extra_ammo" || action == "ignoreme" )
+    {
+        if ( !isdefined( target.zmm ) )
+        {
+            return 0;
+        }
+        target.zmm.toggles[ action ] = target menu_toggle_state( action ) ? 0 : 1;
+        return target menu_apply_toggle( action );
+    }
+    if ( action == "fill" )
+    {
+        target menu_fill_currency();
+        return 1;
+    }
+    if ( action == "perks" )
+    {
+        return target menu_give_perks( 1 );
+    }
+    if ( action == "noperks" )
+    {
+        return isdefined( target.zmm ) && target menu_revoke_perks();
+    }
+    if ( action == "refill" )
+    {
+        held_weapon = target getcurrentweapon();
+        if ( !isdefined( held_weapon ) || isnullweapon( held_weapon ) )
+        {
+            return 0;
+        }
+        target menu_fill_weapon_ammo( held_weapon );
+        return 1;
+    }
+    if ( action == "health" )
+    {
+        if ( !isdefined( target.maxhealth ) || target.maxhealth <= 0 )
+        {
+            return 0;
+        }
+        target.health = target.maxhealth;
         return 1;
     }
     if ( !utility::issharedfuncdefined( #"zm_utility", #"teleport_player" ) )
@@ -8599,7 +8656,7 @@ function menu_hk_bind( key )
     state = self.zmm;
     state.hk_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
     // rows that need a picked player or a position cannot be saved as text
-    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" ) ) )
+    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" ) ) )
     {
         menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
         return;
@@ -8677,7 +8734,7 @@ function menu_fav_toggle()
 {
     state = self.zmm;
     state.fav_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
-    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" ) ) )
+    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" ) ) )
     {
         menu_notify( "This row cannot be a favorite", 0 );
         return;

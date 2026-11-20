@@ -132,7 +132,7 @@ Menu color, Menu on the right, Text mode (no HUD), Start logo, Boss health bar, 
 
 ## 👥 Co-op
 Every player gets the menu. Host: full panel. Other players: text line in the middle of the screen. Only the host needs the mod.
-**Co-op page**: revive a player, go to them or bring them to you.
+**Co-op page**: pick a player, then toggle god mode, infinite ammo or zombies ignoring them, give or take points, max their points & scrap, give or remove all perks, refill their weapon, restore their health, revive them, go to them or bring them to you.
 
 ## 🧹 Quick access
 **Disable all mods** on the main page.
