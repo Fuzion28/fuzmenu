@@ -192,6 +192,7 @@ autoexec fr_init()
     t[ "Lock the box in place" ] = "Bloquer la boite sur place";
     t[ "Remove weapons from box" ] = "Retirer des armes de la boite";
     t[ "REMOVE FROM BOX" ] = "RETIRER DE LA BOITE";
+    t[ "Aether tools" ] = "Outils d'ether";
     t[ "Looked-at bigger" ] = "Cible plus grande";
     t[ "Looked-at normal" ] = "Cible normale";
     t[ "Looked-at smaller" ] = "Cible plus petite";

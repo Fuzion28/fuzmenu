@@ -496,6 +496,7 @@ function menu_build_pages()
         [ "Launchers", 2, "BoxW_la" ],
         [ "Melee", 2, "BoxW_me" ],
         [ "Wonder weapons", 2, "BoxW_ww" ],
+        [ "Aether tools", 4, "boxw_aethertool" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -8001,12 +8002,21 @@ function menu_box_filter( ref, on )
             menu_box_walk( list, 0 );
         }
     }
-    root = weapon::buildweapon( ref ).var_1b57e3034f84a054;
+    // aether tools are not weapons: the box itself tells them apart by subtype (magicbox::function_4494528bb919d011)
+    tool = ref == "aethertool";
+    if ( !tool )
+    {
+        root = weapon::buildweapon( ref ).var_1b57e3034f84a054;
+    }
     found = 0;
     foreach ( entry in level.zmm_boxw_entries )
     {
         info = function_6071eb16b74b2e99( entry );
-        if ( !isdefined( info ) || !isdefined( info.var_9b52b5f3085ca117 ) || info.var_9b52b5f3085ca117 != root )
+        if ( !isdefined( info ) )
+        {
+            continue;
+        }
+        if ( tool ? ( !isdefined( info.subtype ) || info.subtype != "aethertool" ) : ( !isdefined( info.var_9b52b5f3085ca117 ) || info.var_9b52b5f3085ca117 != root ) )
         {
             continue;
         }
