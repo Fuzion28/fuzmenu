@@ -481,6 +481,33 @@ function menu_build_pages()
         [ "Free mystery box", 4, "free_box" ],
         [ "Faster mystery box", 4, "fast_box" ],
         [ "Lock the box in place", 4, "lock_box" ],
+        [ "Remove weapons from box", 2, "BoxW" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "BoxW", "REMOVE FROM BOX", [
+        [ "Assault rifles", 2, "BoxW_ar" ],
+        [ "SMGs", 2, "BoxW_sm" ],
+        [ "LMGs", 2, "BoxW_lm" ],
+        [ "Shotguns", 2, "BoxW_sh" ],
+        [ "Marksman rifles", 2, "BoxW_dm" ],
+        [ "Sniper rifles", 2, "BoxW_sn" ],
+        [ "Pistols", 2, "BoxW_pi" ],
+        [ "Launchers", 2, "BoxW_la" ],
+        [ "Melee", 2, "BoxW_me" ],
+        [ "Wonder weapons", 2, "BoxW_ww" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "BoxW_ww", "WONDER WEAPONS", [
+        [ "Necrofluid (Ashes, Rex)", 4, "boxw_sat_ww_firefly_zm" ],
+        [ "Nekomancer (Kowakujo)", 4, "boxw_sat_ww_hornet_zm" ],
+        [ "Jotunn Star (Totenreich)", 4, "boxw_sat_ww_locust_zm" ],
+        [ "Blundergat (Paradox)", 4, "boxw_sat_ww_mantis_zm" ],
+        [ "LGM-1 (Astra)", 4, "boxw_sat_ww_ruby_zm" ],
+        [ "Warden's Blight (Rex)", 4, "boxw_sat_ww_scarab_zm" ],
+        [ "Ray Gun", 4, "boxw_sat_ww_raygun_mp" ],
+        [ "Ray Gun Mk2", 4, "boxw_sat_ww_raygunmark2_mp" ],
         [ "Back", 1, "" ]
     ] );
 
@@ -853,13 +880,17 @@ function menu_build_pages()
 function menu_weapon_page( id, title, cat, names )
 {
     items = [];
+    box = [];
     foreach ( name in names )
     {
         // full ref: zm_mod_menu_post.lua swaps it for the game's weapon name
         items[ items.size ] = [ "sat_" + cat + "_" + name, 8, "sat_" + cat + "_" + name + "_mp" ];
+        box[ box.size ] = [ "sat_" + cat + "_" + name, 4, "boxw_sat_" + cat + "_" + name + "_mp" ];
     }
     items[ items.size ] = [ "Back", 1, "" ];
+    box[ box.size ] = [ "Back", 1, "" ];
     menu_add_page( id, title, items );
+    menu_add_page( "BoxW_" + cat, title, box );
 }
 
 // can zombies live here: navmesh under the player, then one enemy zombie 200 units ahead that should walk to him
@@ -1794,6 +1825,10 @@ function menu_apply_toggle( key )
 {
     on = menu_toggle_state( key );
     state = self.zmm;
+    if ( issubstr( key, "boxw_" ) )
+    {
+        return menu_box_filter( getsubstr( key, 5 ), on );
+    }
     if ( key == "lang_fr" )
     {
         nengine_store_load( "fuzmenu", "settings" );
@@ -7944,6 +7979,89 @@ function menu_perk_page( act )
     items[ items.size ] = [ "Back", 1, "" ];
     menu_add_page( "PerkList", "PICK A PERK", items );
     return true;
+}
+
+// ---------------------------------------------------------------- mystery box weapon filter
+
+// the box rerolls (10 tries, from the base list) an entry whose limit in the game's level.var_8d848b3dc37f33a9 is reached, so limit 0 keeps a weapon out
+// shortcut: with almost every weapon removed the 10 rerolls can run out and still give a removed one
+function menu_box_filter( ref, on )
+{
+    if ( !isdefined( level.var_8d848b3dc37f33a9 ) )
+    {
+        return false;
+    }
+    if ( !isdefined( level.zmm_boxw_entries ) || !level.zmm_boxw_entries.size )
+    {
+        level.zmm_boxw_entries = [];
+        level.zmm_boxw_prev = [];
+        level.zmm_boxw_off = [];
+        foreach ( list in [ level.var_54989577c4e434aa, level.var_278a6b84a3269b8c, level.var_b29a644f57572450, level.var_8b6bf63f61fe01f9, level.var_ae71d4cfe02b434e, level.var_85de712d04e11e60, "zm_t10_items_magicbox_weapon_wonder_list" ] )
+        {
+            menu_box_walk( list, 0 );
+        }
+    }
+    root = weapon::buildweapon( ref ).var_1b57e3034f84a054;
+    found = 0;
+    foreach ( entry in level.zmm_boxw_entries )
+    {
+        info = function_6071eb16b74b2e99( entry );
+        if ( !isdefined( info ) || !isdefined( info.var_9b52b5f3085ca117 ) || info.var_9b52b5f3085ca117 != root )
+        {
+            continue;
+        }
+        found = 1;
+        if ( on && !istrue( level.zmm_boxw_off[ entry ] ) )
+        {
+            level.zmm_boxw_off[ entry ] = 1;
+            level.zmm_boxw_prev[ entry ] = level.var_8d848b3dc37f33a9[ entry ];
+            limit = spawnstruct();
+            limit.var_58d2f0e3d978b425 = 0;
+            limit.var_33746a1ec9f62e48 = [];
+            level.var_8d848b3dc37f33a9[ entry ] = limit;
+        }
+        else if ( !on && istrue( level.zmm_boxw_off[ entry ] ) )
+        {
+            level.zmm_boxw_off[ entry ] = 0;
+            level.var_8d848b3dc37f33a9[ entry ] = level.zmm_boxw_prev[ entry ];
+        }
+    }
+    return found;
+}
+
+// same walk as the game's magicbox::function_46f699d4f5fd8dba: entries of a spawn list, then its sublists
+function menu_box_walk( list, depth )
+{
+    if ( !isdefined( list ) || depth > 5 )
+    {
+        return;
+    }
+    info = function_6071eb16b74b2e99( list );
+    if ( !isdefined( info ) && function_f20826a3e52aa5cf( list ) )
+    {
+        info = function_6071eb16b74b2e99( function_99ee3cf75e2291a6( %"itemspawnlist:", list ) );
+    }
+    if ( !isdefined( info ) )
+    {
+        return;
+    }
+    if ( function_58736ce92359fa07( info.var_a07f3f0105a769a7 ) )
+    {
+        foreach ( item in info.var_a07f3f0105a769a7 )
+        {
+            if ( isdefined( item.var_f98825c1490f96d0 ) )
+            {
+                level.zmm_boxw_entries[ level.zmm_boxw_entries.size ] = item.var_f98825c1490f96d0;
+            }
+        }
+    }
+    if ( function_58736ce92359fa07( info.var_7ce9e28d27efbfab ) )
+    {
+        foreach ( sub in info.var_7ce9e28d27efbfab )
+        {
+            menu_box_walk( sub.var_7d35dc4a083a54c4, depth + 1 );
+        }
+    }
 }
 
 // ---------------------------------------------------------------- mystery box (as ProjectNexus: game override table)

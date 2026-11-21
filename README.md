@@ -94,7 +94,7 @@ All power-ups, Double points, Insta kill, Max ammo, Max armor, Full power, Free 
 
 ## 🌍 World
 Turn on power, Open all doors, **Start Boss Fight** (all maps), **Finish Boss Fight** (ends the fight with its death scene), Restart map
-Mystery box: Free, Faster, Lock the box in place
+Mystery box: Free, Faster, Lock the box in place, Remove weapons from box (on/off per weapon)
 
 ## 🎮 Game modes & rules
 **Game modes**
