@@ -470,6 +470,9 @@ autoexec fr_init()
     t[ "PICK A PERK" ] = "CHOISIR UN ATOUT";
     t[ "PISTOLS" ] = "PISTOLETS";
     t[ "PLAYER" ] = "JOUEUR";
+    t[ "All players" ] = "Tous les joueurs";
+    t[ "Give weapon" ] = "Donner une arme";
+    t[ "GIVE WEAPON" ] = "DONNER UNE ARME";
     t[ "POINTS MULTIPLIER" ] = "MULTIPLICATEUR DE POINTS";
     t[ "POWER-UP DURATION" ] = "DUREE DES BONUS";
     t[ "PROFILES" ] = "PROFILS";

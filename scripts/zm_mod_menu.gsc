@@ -168,6 +168,9 @@ function menu_build_pages()
         [ "Zombies ignore player (on/off)", 9, "coop_do", "ignoreme" ],
         [ "Points", 2, "CoopPoints" ],
         [ "Max points & scrap", 9, "coop_do", "fill" ],
+        [ "Give weapon", 2, "CoopGive" ],
+        [ "Pack-a-Punch", 2, "CoopPap" ],
+        [ "Weapon rarity", 2, "CoopRarity" ],
         [ "All perks", 9, "coop_do", "perks" ],
         [ "Remove all perks", 9, "coop_do", "noperks" ],
         [ "Refill weapons", 9, "coop_do", "refill" ],
@@ -175,6 +178,52 @@ function menu_build_pages()
         [ "Revive", 9, "coop_do", "revive" ],
         [ "Go to player", 9, "coop_do", "goto" ],
         [ "Bring to me", 9, "coop_do", "bring" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CoopGive", "GIVE WEAPON", [
+        [ "Assault rifles", 2, "CW_ar" ],
+        [ "SMGs", 2, "CW_sm" ],
+        [ "LMGs", 2, "CW_lm" ],
+        [ "Shotguns", 2, "CW_sh" ],
+        [ "Marksman rifles", 2, "CW_dm" ],
+        [ "Sniper rifles", 2, "CW_sn" ],
+        [ "Pistols", 2, "CW_pi" ],
+        [ "Launchers", 2, "CW_la" ],
+        [ "Melee", 2, "CW_me" ],
+        [ "Wonder weapons", 2, "CW_ww" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CW_ww", "WONDER WEAPONS", [
+        [ "Necrofluid (Ashes, Rex)", 9, "coop_give", "sat_ww_firefly_zm" ],
+        [ "Nekomancer (Kowakujo)", 9, "coop_give", "sat_ww_hornet_zm" ],
+        [ "Jotunn Star (Totenreich)", 9, "coop_give", "sat_ww_locust_zm" ],
+        [ "Blundergat (Paradox)", 9, "coop_give", "sat_ww_mantis_zm" ],
+        [ "Sundergat (Paradox)", 9, "coop_give", "sundergat" ],
+        [ "LGM-1 (Astra)", 9, "coop_give", "sat_ww_ruby_zm" ],
+        [ "Warden's Blight (Rex)", 9, "coop_give", "sat_ww_scarab_zm" ],
+        [ "Ray Gun", 9, "coop_give", "sat_ww_raygun_mp" ],
+        [ "Ray Gun Mk2", 9, "coop_give", "sat_ww_raygunmark2_mp" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CoopPap", "PACK-A-PUNCH", [
+        [ "PAP I", 9, "coop_pap", 1 ],
+        [ "PAP II", 9, "coop_pap", 2 ],
+        [ "PAP III", 9, "coop_pap", 3 ],
+        [ "PAP IV", 9, "coop_pap", 4 ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CoopRarity", "WEAPON RARITY", [
+        [ "Common", 9, "coop_rarity", 0 ],
+        [ "Uncommon", 9, "coop_rarity", 1 ],
+        [ "Rare", 9, "coop_rarity", 2 ],
+        [ "Epic", 9, "coop_rarity", 3 ],
+        [ "Legendary", 9, "coop_rarity", 4 ],
+        [ "Ultra", 9, "coop_rarity", 5 ],
+        [ "Wonder weapon", 9, "coop_rarity", 6 ],
         [ "Back", 1, "" ]
     ] );
 
@@ -882,16 +931,20 @@ function menu_weapon_page( id, title, cat, names )
 {
     items = [];
     box = [];
+    coop = [];
     foreach ( name in names )
     {
         // full ref: zm_mod_menu_post.lua swaps it for the game's weapon name
         items[ items.size ] = [ "sat_" + cat + "_" + name, 8, "sat_" + cat + "_" + name + "_mp" ];
         box[ box.size ] = [ "sat_" + cat + "_" + name, 4, "boxw_sat_" + cat + "_" + name + "_mp" ];
+        coop[ coop.size ] = [ "sat_" + cat + "_" + name, 9, "coop_give", "sat_" + cat + "_" + name + "_mp" ];
     }
     items[ items.size ] = [ "Back", 1, "" ];
     box[ box.size ] = [ "Back", 1, "" ];
+    coop[ coop.size ] = [ "Back", 1, "" ];
     menu_add_page( id, title, items );
     menu_add_page( "BoxW_" + cat, title, box );
+    menu_add_page( "CW_" + cat, title, coop );
 }
 
 // can zombies live here: navmesh under the player, then one enemy zombie 200 units ahead that should walk to him
@@ -7435,6 +7488,14 @@ function menu_param( label, action, value )
     else if ( action == "coop_pick" )
     {
         self.zmm.coop_target = value;
+        self.zmm.coop_all = 0;
+        menu_enter( "CoopAction" );
+        return;
+    }
+    else if ( action == "coop_all" )
+    {
+        self.zmm.coop_target = undefined;
+        self.zmm.coop_all = 1;
         menu_enter( "CoopAction" );
         return;
     }
@@ -7442,10 +7503,9 @@ function menu_param( label, action, value )
     {
         ok = menu_coop_do( value );
     }
-    else if ( action == "coop_pts" )
+    else if ( action == "coop_pts" || action == "coop_give" || action == "coop_pap" || action == "coop_rarity" )
     {
-        target = self.zmm.coop_target;
-        ok = isdefined( target ) && isplayer( target ) && target menu_add_currency( "points", value );
+        ok = menu_coop_do( action, value );
     }
     else if ( action == "prof_save" )
     {
@@ -7462,7 +7522,7 @@ function menu_param( label, action, value )
 function menu_coop_page()
 {
     self.zmm.coop_page = "Coop" + self getentitynumber();
-    items = [];
+    items = [ [ "All players", 9, "coop_all", 0 ] ];
     foreach ( player in level.players )
     {
         if ( player != self )
@@ -7470,7 +7530,7 @@ function menu_coop_page()
             items[ items.size ] = [ isdefined( player.name ) ? player.name : "Player", 9, "coop_pick", player ];
         }
     }
-    if ( items.size == 0 )
+    if ( items.size == 1 )
     {
         return false;
     }
@@ -7479,13 +7539,76 @@ function menu_coop_page()
     return true;
 }
 
-// shortcut: revives a downed player only, a dead spectator is not brought back; upgrade once the zombies respawn call is known
-function menu_coop_do( action )
+// the picked player, or with All players every other player; ok when it worked for at least one
+function menu_coop_do( action, value )
 {
-    target = self.zmm.coop_target;
+    targets = [];
+    if ( istrue( self.zmm.coop_all ) )
+    {
+        foreach ( player in level.players )
+        {
+            if ( player != self )
+            {
+                targets[ targets.size ] = player;
+            }
+        }
+    }
+    else if ( isdefined( self.zmm.coop_target ) )
+    {
+        targets[ 0 ] = self.zmm.coop_target;
+    }
+    // All players: a toggle goes ON for everyone unless everyone already has it, so mixed states line up
+    self.zmm.coop_set = undefined;
+    if ( targets.size > 1 && ( action == "god_mode" || action == "extra_ammo" || action == "ignoreme" ) )
+    {
+        self.zmm.coop_set = 0;
+        foreach ( target in targets )
+        {
+            if ( isdefined( target.zmm ) && !target menu_toggle_state( action ) )
+            {
+                self.zmm.coop_set = 1;
+            }
+        }
+    }
+    ok = 0;
+    foreach ( target in targets )
+    {
+        if ( isplayer( target ) && menu_coop_one( target, action, value ) )
+        {
+            ok = 1;
+        }
+    }
+    return ok;
+}
+
+// shortcut: revives a downed player only, a dead spectator is not brought back; upgrade once the zombies respawn call is known
+function menu_coop_one( target, action, value )
+{
     if ( !isdefined( target ) || !isalive( target ) )
     {
         return 0;
+    }
+    if ( action == "coop_pts" )
+    {
+        return target menu_add_currency( "points", value );
+    }
+    // run as the target, so their own zombie build setting and Zombie Appearances skin apply
+    if ( action == "coop_give" )
+    {
+        if ( !isdefined( target.zmm ) )
+        {
+            return 0;
+        }
+        target thread menu_wonder_worker( value, value );
+        return 1;
+    }
+    if ( action == "coop_pap" )
+    {
+        return isdefined( target.zmm ) && target menu_pap( value, 1 ) == 1;
+    }
+    if ( action == "coop_rarity" )
+    {
+        return isdefined( target.zmm ) && target menu_rarity( value ) == 1;
     }
     if ( action == "revive" )
     {
@@ -7503,7 +7626,7 @@ function menu_coop_do( action )
         {
             return 0;
         }
-        target.zmm.toggles[ action ] = target menu_toggle_state( action ) ? 0 : 1;
+        target.zmm.toggles[ action ] = isdefined( self.zmm.coop_set ) ? self.zmm.coop_set : ( target menu_toggle_state( action ) ? 0 : 1 );
         return target menu_apply_toggle( action );
     }
     if ( action == "fill" )
@@ -7544,6 +7667,10 @@ function menu_coop_do( action )
     }
     if ( action == "goto" )
     {
+        if ( istrue( self.zmm.coop_all ) )
+        {
+            return 0;
+        }
         self thread menu_do_teleport( target.origin, self getplayerangles() );
     }
     else
@@ -8784,7 +8911,7 @@ function menu_hk_bind( key )
     state = self.zmm;
     state.hk_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
     // rows that need a picked player or a position cannot be saved as text
-    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" ) ) )
+    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" || state.hk_entry[ 2 ] == "coop_all" || state.hk_entry[ 2 ] == "coop_give" || state.hk_entry[ 2 ] == "coop_pap" || state.hk_entry[ 2 ] == "coop_rarity" ) ) )
     {
         menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
         return;
@@ -8862,7 +8989,7 @@ function menu_fav_toggle()
 {
     state = self.zmm;
     state.fav_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
-    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" ) ) )
+    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" || state.fav_entry[ 2 ] == "coop_all" || state.fav_entry[ 2 ] == "coop_give" || state.fav_entry[ 2 ] == "coop_pap" || state.fav_entry[ 2 ] == "coop_rarity" ) ) )
     {
         menu_notify( "This row cannot be a favorite", 0 );
         return;
