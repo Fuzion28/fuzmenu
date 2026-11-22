@@ -175,6 +175,7 @@ function menu_build_pages()
         [ "Remove all perks", 9, "coop_do", "noperks" ],
         [ "Refill weapons", 9, "coop_do", "refill" ],
         [ "Restore health", 9, "coop_do", "health" ],
+        [ "Armor", 2, "CoopArmor" ],
         [ "Revive", 9, "coop_do", "revive" ],
         [ "Go to player", 9, "coop_do", "goto" ],
         [ "Bring to me", 9, "coop_do", "bring" ],
@@ -205,6 +206,14 @@ function menu_build_pages()
         [ "Warden's Blight (Rex)", 9, "coop_give", "sat_ww_scarab_zm" ],
         [ "Ray Gun", 9, "coop_give", "sat_ww_raygun_mp" ],
         [ "Ray Gun Mk2", 9, "coop_give", "sat_ww_raygunmark2_mp" ],
+        [ "Back", 1, "" ]
+    ] );
+
+    menu_add_page( "CoopArmor", "ARMOR", [
+        [ "1 plate", 9, "coop_armor", 1 ],
+        [ "2 plates", 9, "coop_armor", 2 ],
+        [ "3 plates", 9, "coop_armor", 3 ],
+        [ "Refill armor & plates", 9, "coop_armor", 0 ],
         [ "Back", 1, "" ]
     ] );
 
@@ -7503,7 +7512,7 @@ function menu_param( label, action, value )
     {
         ok = menu_coop_do( value );
     }
-    else if ( action == "coop_pts" || action == "coop_give" || action == "coop_pap" || action == "coop_rarity" )
+    else if ( action == "coop_pts" || action == "coop_give" || action == "coop_pap" || action == "coop_rarity" || action == "coop_armor" )
     {
         ok = menu_coop_do( action, value );
     }
@@ -7609,6 +7618,21 @@ function menu_coop_one( target, action, value )
     if ( action == "coop_rarity" )
     {
         return isdefined( target.zmm ) && target menu_rarity( value ) == 1;
+    }
+    // vest level like the Armor page, then full armor and a full plate stash, as the Full Armor powerup does (script_2c6f3a7de62eb35b.gsc:73-80)
+    if ( action == "coop_armor" )
+    {
+        if ( value > 0 )
+        {
+            target zm_armor::give_armor( value );
+        }
+        if ( ( target.var_208247d6c5edea95 ?? 0 ) <= 0 )
+        {
+            return 0;
+        }
+        target armor::function_6a2b9bcb602048f( target.var_208247d6c5edea95 );
+        target armor::function_164c824617d7e8d7( target armor::function_db9ebf086f67fe92() );
+        return 1;
     }
     if ( action == "revive" )
     {
@@ -8911,7 +8935,7 @@ function menu_hk_bind( key )
     state = self.zmm;
     state.hk_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
     // rows that need a picked player or a position cannot be saved as text
-    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" || state.hk_entry[ 2 ] == "coop_all" || state.hk_entry[ 2 ] == "coop_give" || state.hk_entry[ 2 ] == "coop_pap" || state.hk_entry[ 2 ] == "coop_rarity" ) ) )
+    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" || state.hk_entry[ 2 ] == "coop_all" || state.hk_entry[ 2 ] == "coop_give" || state.hk_entry[ 2 ] == "coop_pap" || state.hk_entry[ 2 ] == "coop_rarity" || state.hk_entry[ 2 ] == "coop_armor" ) ) )
     {
         menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
         return;
@@ -8989,7 +9013,7 @@ function menu_fav_toggle()
 {
     state = self.zmm;
     state.fav_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
-    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" || state.fav_entry[ 2 ] == "coop_all" || state.fav_entry[ 2 ] == "coop_give" || state.fav_entry[ 2 ] == "coop_pap" || state.fav_entry[ 2 ] == "coop_rarity" ) ) )
+    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" || state.fav_entry[ 2 ] == "coop_all" || state.fav_entry[ 2 ] == "coop_give" || state.fav_entry[ 2 ] == "coop_pap" || state.fav_entry[ 2 ] == "coop_rarity" || state.fav_entry[ 2 ] == "coop_armor" ) ) )
     {
         menu_notify( "This row cannot be a favorite", 0 );
         return;

@@ -280,6 +280,7 @@ autoexec fr_init()
     t[ "Random weapon every round" ] = "Arme aleatoire a chaque manche";
     t[ "Rapid fire" ] = "Tir rapide";
     t[ "Refill weapons" ] = "Recharger les armes";
+    t[ "Refill armor & plates" ] = "Recharger armure et plaques";
     t[ "Regular zombies" ] = "Zombies normaux";
     t[ "Remove all" ] = "Tout retirer";
     t[ "Remove all perks" ] = "Retirer tous les atouts";
