@@ -1834,6 +1834,10 @@ function menu_toggle( key )
 function menu_toggle_state( key )
 {
     state = self.zmm;
+    if ( issubstr( key, "boxw_" ) )
+    {
+        return isdefined( level.zmm_boxw_on ) && istrue( level.zmm_boxw_on[ key ] );
+    }
     if ( !isdefined( state.toggles[ key ] ) )
     {
         return false;
@@ -1890,7 +1894,18 @@ function menu_apply_toggle( key )
     state = self.zmm;
     if ( issubstr( key, "boxw_" ) )
     {
-        return menu_box_filter( getsubstr( key, 5 ), on );
+        // on above reads the shared state, the wanted state is the one menu_toggle or the reset just wrote
+        on = istrue( state.toggles[ key ] );
+        if ( !menu_box_filter( getsubstr( key, 5 ), on ) )
+        {
+            return false;
+        }
+        if ( !isdefined( level.zmm_boxw_on ) )
+        {
+            level.zmm_boxw_on = [];
+        }
+        level.zmm_boxw_on[ key ] = on;
+        return true;
     }
     if ( key == "lang_fr" )
     {
@@ -7512,7 +7527,15 @@ function menu_param( label, action, value )
     {
         ok = menu_coop_do( value );
     }
-    else if ( action == "coop_pts" || action == "coop_give" || action == "coop_pap" || action == "coop_rarity" || action == "coop_armor" )
+    else if ( action == "coop_give" )
+    {
+        if ( !menu_coop_do( action, value ) )
+        {
+            menu_notify( "Give weapon", 0 );
+        }
+        return;
+    }
+    else if ( action == "coop_pts" || action == "coop_pap" || action == "coop_rarity" || action == "coop_armor" )
     {
         ok = menu_coop_do( action, value );
     }
@@ -7580,14 +7603,24 @@ function menu_coop_do( action, value )
         }
     }
     ok = 0;
+    self.zmm.coop_i = 0;
     foreach ( target in targets )
     {
         if ( isplayer( target ) && menu_coop_one( target, action, value ) )
         {
             ok = 1;
         }
+        self.zmm.coop_i++;
     }
     return ok;
+}
+
+// threaded on the target: the game ends it when they disconnect, the flag stops a second press doubling the upgrade
+function menu_coop_pap( value )
+{
+    self.zmm.coop_pap_busy = 1;
+    self menu_pap( value, 1 );
+    self.zmm.coop_pap_busy = 0;
 }
 
 // shortcut: revives a downed player only, a dead spectator is not brought back; upgrade once the zombies respawn call is known
@@ -7613,7 +7646,12 @@ function menu_coop_one( target, action, value )
     }
     if ( action == "coop_pap" )
     {
-        return isdefined( target.zmm ) && target menu_pap( value, 1 ) == 1;
+        if ( !isdefined( target.zmm ) || istrue( target.zmm.coop_pap_busy ) )
+        {
+            return 0;
+        }
+        target thread menu_coop_pap( value );
+        return 1;
     }
     if ( action == "coop_rarity" )
     {
@@ -7696,6 +7734,12 @@ function menu_coop_one( target, action, value )
             return 0;
         }
         self thread menu_do_teleport( target.origin, self getplayerangles() );
+    }
+    else if ( istrue( self.zmm.coop_all ) )
+    {
+        // a ring around the user, 40 units further every 4 players, so nobody lands inside someone else
+        ring = [ ( 40, 0, 0 ), ( -40, 0, 0 ), ( 0, 40, 0 ), ( 0, -40, 0 ) ];
+        target thread menu_do_teleport( self.origin + ring[ self.zmm.coop_i % 4 ] * ( 1 + int( self.zmm.coop_i / 4 ) ), target getplayerangles() );
     }
     else
     {
@@ -8010,7 +8054,7 @@ function menu_reset_mods()
     menu_level_option( "powerup_time", 1 );
     foreach ( key in level.zmm_toggle_keys )
     {
-        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || key == "lang_fr" || !istrue( state.toggles[ key ] ) )
+        if ( key == "menu_right" || key == "text_mode" || key == "start_logo" || key == "mouse_nav" || key == "aim_melee" || key == "zm_build" || key == "boss_bar" || key == "lang_fr" || !menu_toggle_state( key ) )
         {
             continue;
         }
@@ -8935,7 +8979,7 @@ function menu_hk_bind( key )
     state = self.zmm;
     state.hk_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
     // rows that need a picked player or a position cannot be saved as text
-    if ( state.page == "Shortcuts" || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" || state.hk_entry[ 2 ] == "coop_all" || state.hk_entry[ 2 ] == "coop_give" || state.hk_entry[ 2 ] == "coop_pap" || state.hk_entry[ 2 ] == "coop_rarity" || state.hk_entry[ 2 ] == "coop_armor" ) ) )
+    if ( state.page == "Shortcuts" || issubstr( state.page, "Coop" ) || issubstr( state.page, "CW_" ) || state.hk_entry[ 1 ] < 2 || ( state.hk_entry[ 1 ] == 9 && ( state.hk_entry[ 2 ] == "map_tp" || state.hk_entry[ 2 ] == "coop_pick" || state.hk_entry[ 2 ] == "coop_do" || state.hk_entry[ 2 ] == "coop_pts" || state.hk_entry[ 2 ] == "coop_all" || state.hk_entry[ 2 ] == "coop_give" || state.hk_entry[ 2 ] == "coop_pap" || state.hk_entry[ 2 ] == "coop_rarity" || state.hk_entry[ 2 ] == "coop_armor" ) ) )
     {
         menu_notify( "F" + key + ": this row cannot be a shortcut", 0 );
         return;
@@ -9013,7 +9057,7 @@ function menu_fav_toggle()
 {
     state = self.zmm;
     state.fav_entry = level.zmm_pages[ state.page ].items[ state.cursor ];
-    if ( state.page == "Shortcuts" || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" || state.fav_entry[ 2 ] == "coop_all" || state.fav_entry[ 2 ] == "coop_give" || state.fav_entry[ 2 ] == "coop_pap" || state.fav_entry[ 2 ] == "coop_rarity" || state.fav_entry[ 2 ] == "coop_armor" ) ) )
+    if ( state.page == "Shortcuts" || issubstr( state.page, "Coop" ) || issubstr( state.page, "CW_" ) || state.fav_entry[ 1 ] < 2 || ( state.fav_entry[ 1 ] == 2 && state.fav_entry[ 2 ] == "Favorites" ) || ( state.fav_entry[ 1 ] == 9 && ( state.fav_entry[ 2 ] == "map_tp" || state.fav_entry[ 2 ] == "coop_pick" || state.fav_entry[ 2 ] == "coop_do" || state.fav_entry[ 2 ] == "coop_pts" || state.fav_entry[ 2 ] == "coop_all" || state.fav_entry[ 2 ] == "coop_give" || state.fav_entry[ 2 ] == "coop_pap" || state.fav_entry[ 2 ] == "coop_rarity" || state.fav_entry[ 2 ] == "coop_armor" ) ) )
     {
         menu_notify( "This row cannot be a favorite", 0 );
         return;
