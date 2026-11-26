@@ -473,6 +473,7 @@ autoexec fr_init()
     t[ "PLAYER" ] = "JOUEUR";
     t[ "All players" ] = "Tous les joueurs";
     t[ "Give weapon" ] = "Donner une arme";
+    t[ "Copy my weapon" ] = "Copier mon arme";
     t[ "GIVE WEAPON" ] = "DONNER UNE ARME";
     t[ "POINTS MULTIPLIER" ] = "MULTIPLICATEUR DE POINTS";
     t[ "POWER-UP DURATION" ] = "DUREE DES BONUS";

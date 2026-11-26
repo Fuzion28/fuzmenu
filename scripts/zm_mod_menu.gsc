@@ -169,6 +169,8 @@ function menu_build_pages()
         [ "Points", 2, "CoopPoints" ],
         [ "Max points & scrap", 9, "coop_do", "fill" ],
         [ "Give weapon", 2, "CoopGive" ],
+        [ "Random weapon", 9, "coop_do", "rand_gun" ],
+        [ "Copy my weapon", 9, "coop_do", "copy_gun" ],
         [ "Pack-a-Punch", 2, "CoopPap" ],
         [ "Weapon rarity", 2, "CoopRarity" ],
         [ "All perks", 9, "coop_do", "perks" ],
@@ -4060,6 +4062,20 @@ function menu_random_gun()
 // "root,variant,camo,pap,att,attvariant,..." as the loot IDs the game's own save uses
 function menu_store_build( slot )
 {
+    if ( !menu_build_str() )
+    {
+        return 0;
+    }
+    // load first so the other slots already in the file are kept
+    nengine_store_load( "fuzmenu", "builds" );
+    nengine_store_set( "fuzmenu", "b" + slot, self.zmm.bk_str );
+    nengine_store_save( "fuzmenu", "builds" );
+    return 1;
+}
+
+// held weapon as a build string in self.zmm.bk_str, returns 0 when it has no loot ID
+function menu_build_str()
+{
     self.zmm.bk_gun = self getcurrentweapon();
     if ( !isdefined( self.zmm.bk_gun ) || isnullweapon( self.zmm.bk_gun ) )
     {
@@ -4104,10 +4120,6 @@ function menu_store_build( slot )
         }
         self.zmm.bk_str = self.zmm.bk_str + "," + self.zmm.bk_id + "," + self.zmm.bk_var;
     }
-    // load first so the other slots already in the file are kept
-    nengine_store_load( "fuzmenu", "builds" );
-    nengine_store_set( "fuzmenu", "b" + slot, self.zmm.bk_str );
-    nengine_store_save( "fuzmenu", "builds" );
     return 1;
 }
 
@@ -7642,6 +7654,42 @@ function menu_coop_one( target, action, value )
             return 0;
         }
         target thread menu_wonder_worker( value, value );
+        return 1;
+    }
+    // a different roll per target, same pool as the Random weapon pick
+    if ( action == "rand_gun" )
+    {
+        if ( !isdefined( target.zmm ) )
+        {
+            return 0;
+        }
+        target menu_random_gun();
+        return 1;
+    }
+    // the held gun with its build; read once for all targets, a gun with no loot ID is given by name
+    if ( action == "copy_gun" )
+    {
+        if ( self.zmm.coop_i == 0 )
+        {
+            self.zmm.copy_w = self getcurrentweapon();
+            self.zmm.copy_ok = isdefined( self.zmm.copy_w ) && !isnullweapon( self.zmm.copy_w ) && menu_build_str();
+        }
+        if ( !isdefined( target.zmm ) || !isdefined( self.zmm.copy_w ) || isnullweapon( self.zmm.copy_w ) )
+        {
+            return 0;
+        }
+        if ( self.zmm.copy_ok )
+        {
+            target.zmm.bk_skin = undefined;
+            target.zmm.bk_str = self.zmm.bk_str;
+            target thread menu_build_from_str();
+            return 1;
+        }
+        if ( !isdefined( self.zmm.copy_w.basename ) )
+        {
+            return 0;
+        }
+        target thread menu_wonder_worker( self.zmm.copy_w.basename, self.zmm.copy_w.basename );
         return 1;
     }
     if ( action == "coop_pap" )
